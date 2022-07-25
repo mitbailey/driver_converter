@@ -57,6 +57,21 @@ while True:
         first = True
         for arg in fn_args:
             print(arg)
+            # if (arg.find('size') != -1 or arg.find('Size') != -1):
+            #     print('len')
+            #     if first:
+            #         first = False
+            #     else:
+            #         o.write(', ')
+            #     o.write('\'len\'')
+            # elif (arg.find('buffer') != -1 or arg.find('Buffer') != -1):
+            #     print('buf')
+            #     if first:
+            #         first = False
+            #     else:
+            #         o.write(', ')
+            #     o.write('\'buf\'')
+            # elif (arg.find('**') != -1):
             if (arg.find('**') != -1):
                 print('out')
                 if first:
