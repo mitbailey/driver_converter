@@ -1,0 +1,11 @@
+KCUBESTEPPER_API short   TLI_BuildDeviceList(void);
+KCUBESTEPPER_API short   TLI_GetDeviceListSize();
+KCUBESTEPPER_API short   TLI_GetDeviceList(SAFEARRAY** stringsReceiver);
+KCUBESTEPPER_API short   TLI_GetDeviceListByType(SAFEARRAY** stringsReceiver, int typeID);
+KCUBESTEPPER_API short   TLI_GetDeviceListByTypes(SAFEARRAY** stringsReceiver, int * typeIDs, int length);
+KCUBESTEPPER_API short   TLI_GetDeviceListExt(char *receiveBuffer, DWORD sizeOfBuffer);
+KCUBESTEPPER_API short   TLI_GetDeviceListByTypeExt(char *receiveBuffer, DWORD sizeOfBuffer, int typeID);
+KCUBESTEPPER_API short   TLI_GetDeviceListByTypesExt(char *receiveBuffer, DWORD sizeOfBuffer, int * typeIDs, int length);
+KCUBESTEPPER_API short   TLI_GetDeviceInfo(char const * serialNo, TLI_DeviceInfo *info);
+KCUBESTEPPER_API void   TLI_InitializeSimulations();
+KCUBESTEPPER_API void   TLI_UninitializeSimulations();
