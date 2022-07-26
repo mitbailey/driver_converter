@@ -1,3 +1,5 @@
+# Will convert a list of function declarations into a set of mid-level driver compatible declarations.
+
 # Startup arguments.
 PREFIX = 'SCC_'
 IN_FILENAME = 'scc_header.txt'
