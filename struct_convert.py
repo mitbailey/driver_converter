@@ -32,4 +32,7 @@ while True:
         print('Packing: ' + str(pack))
 
     # Indicates start of a struct.
-    # if (line.find('typedef struct'))
+    struct_begin = line.find('typedef struct')
+    if (struct_begin != -1):
+        struct_name = line[struct_begin + len('typedef struct') + 1 : len(line)]
+        print(struct_name)
