@@ -176,7 +176,8 @@ class Thorlabs: # Wrapper class for TLI methods
                 bool isLaser;
                 bool isCustomType;
                 bool isRack;
-                short maxChannels;};
+                short maxChannels;
+            };
             """, packed=True) # define struct, with packing
             ser_buf = ffi.new('struct TLI_DeviceInfo *') # create memory for struct
             ret = TLIBase.GetDeviceInfo(str(serialNumber), ser_buf) # pass pointer
