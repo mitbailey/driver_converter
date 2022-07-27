@@ -3,7 +3,7 @@
 
 import re
 # Create a function-matching regex.
-fn_regex = re.compile(r'short')
+fn_regex = re.compile(r'.+?\s+?.+?\s+?.+?\(.+?\);')
 # fn_regex = re.compile(r'.(int|float|double|char).;')
 
 # Startup arguments.
@@ -30,4 +30,4 @@ while True:
     # print(line)
 
     if fn_regex.match(line) is not None:
-        print('Match! On line ' + str(i))
+        print(str(i) + ': ' + line)
