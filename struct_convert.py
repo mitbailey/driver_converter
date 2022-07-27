@@ -2,11 +2,11 @@
 # Converts only the struct declarations to mid-level driver compatible declarations.
 
 # Startup arguments.
-IN_FILENAME = 'tl.h'
+IN_FILENAME = 'input/tl.h'
 OUT_FILENAME = 'tl_h_structs_out.py'
 
 f = open(IN_FILENAME, 'r')
-o = open(OUT_FILENAME, 'w')
+o = open('output/' + OUT_FILENAME, 'w')
 
 o.write('# %% Imports\n')
 o.write('from __future__ import annotations\n')
@@ -87,3 +87,4 @@ while True:
             o.write('{\n')
             print(struct_name)
 
+o.close()

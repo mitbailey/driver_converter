@@ -1,7 +1,4 @@
-_prefix_ = 'TLI_'
-
 BuildDeviceList = Sig('in')
-GetDeviceListSize = Sig()
 GetDeviceList = Sig('out')
 GetDeviceListByType = Sig('out', 'in')
 GetDeviceListByTypes = Sig('out', 'in', 'in')
@@ -9,5 +6,3 @@ GetDeviceListExt = Sig('in', 'in')
 GetDeviceListByTypeExt = Sig('in', 'in', 'in')
 GetDeviceListByTypesExt = Sig('in', 'in', 'in', 'in')
 GetDeviceInfo = Sig('in', 'in')
-InitializeSimulations = Sig(ret=ret_ignore)
-UninitializeSimulations = Sig(ret=ret_ignore)

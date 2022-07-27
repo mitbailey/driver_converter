@@ -442,5 +442,5 @@ typedef unsigned char byte;
 	KCUBESTEPPER_API byte   SCC_GetDigitalOutputs(char const * serialNo);
 	KCUBESTEPPER_API short   SCC_SetDigitalOutputs(char const * serialNo, byte outputsBits);
 	KCUBESTEPPER_API short   SCC_GetRealValueFromDeviceUnit(char const * serialNo, int device_unit, double *real_unit, int unitType);
-	KCUBESTEPPER_API short   SCC_GetDeviceUnitFromRealValue(char const * serialNo, double real_unit, int *device_unit, int unitType);
+	KCUBESTEPPER_API short   SCC_GetDeviceUnitFromRealValue (char const * serialNo, double real_unit, int *device_unit, int unitType);
 }
