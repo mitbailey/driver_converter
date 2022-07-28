@@ -633,10 +633,47 @@ class Thorlabs: # Wrapper class for TLI methods
             raise TypeError('Serial number can be an int or a list of int.')
 
     class KST101: # Subclass for KST101 devices
+        # API calls; possible examples.
+        """
+            get_status_n
+            get_status
+            wait_for_status
+
+            home
+            is_homing
+            is_homed
+            wait_for_home
+
+            get_position
+            set_position_reference
+            move_by
+            move_to
+            jog
+            is_moving
+            wait_move
+            stop
+            wait_for_stop
+
+            get_velocity_parameters
+            setup_velocity
+            get_jog_parameters
+            setup_jog
+            get_homing_parameters
+            setup_homing
+            get_gen_move_parameters
+            setup_gen_move
+            get_limit_switch_parameters
+            setup_limit_switch
+            get_kcube_trigio_parameters
+            setup_kcube_trigio
+            get_kcube_trigpos_parameters
+            setup_kcube_trigpos
+        """
+
         # TLI List method
         open_devices = [] # List of opened devices
         @staticmethod
-        def ListDevices() -> list:
+        def _ListDevices() -> list:
             """List all available KST101 devices (including opened devices).
 
             Returns:
@@ -671,7 +708,7 @@ class Thorlabs: # Wrapper class for TLI methods
             self.open = False
 
         # SCC Methods
-        def Open(self) -> bool:
+        def _Open(self) -> bool:
             """Open connection to the KST101 Controller.
 
             Raises:
@@ -694,7 +731,7 @@ class Thorlabs: # Wrapper class for TLI methods
             if self.open:
                 self.Close()
         
-        def Close(self) -> None:
+        def _Close(self) -> None:
             """Close connection to the KST101 Controller.
             """
             TLI_KST.Close(self.serial)
@@ -702,7 +739,7 @@ class Thorlabs: # Wrapper class for TLI methods
             self.serial = None
             self.open = False
 
-        def CheckConnection(self) -> bool:
+        def _CheckConnection(self) -> bool:
             """Check connection to the device.
 
             Returns:
@@ -710,7 +747,7 @@ class Thorlabs: # Wrapper class for TLI methods
             """
             return TLI_KST.CheckConnection(self.serial)
         
-        def Identify(self) -> None:
+        def _Identify(self) -> None:
             """Identify the device by blinking the display backlight.
 
             Raises:
@@ -725,7 +762,7 @@ class Thorlabs: # Wrapper class for TLI methods
             return
         
         # Should this be automatically performed on open?
-        def GetHardwareInfo(self) -> dict:
+        def _GetHardwareInfo(self) -> dict:
             """Get the hardware information for this device.
 
             Raises:
@@ -736,25 +773,105 @@ class Thorlabs: # Wrapper class for TLI methods
             """
             if not self.open:
                 self.Open()
-            ffi = FFI()
-            ffi.cdef("""
-            struct TLI_HardwareInformation
-            {
-                DWORD serialNumber;
-                char modelNumber[8];
-                WORD type;
-                DWORD firmwareVersion;
-                char notes[48];
-                unsigned char deviceDependantData[12];
-                WORD hardwareVersion;
-                WORD modificationState;
-                short numChannels;};
-            """)
-            ser_buf = ffi.new('struct TLI_HardwareInformation *')
+            # ffi = FFI()
+            # ffi.cdef("""
+            # struct TLI_HardwareInformation
+            # {
+            #     DWORD serialNumber;
+            #     char modelNumber[8];
+            #     WORD type;
+            #     DWORD firmwareVersion;
+            #     char notes[48];
+            #     unsigned char deviceDependantData[12];
+            #     WORD hardwareVersion;
+            #     WORD modificationState;
+            #     short numChannels;};
+            # """)
+            ser_buf = package_ffi.new('struct TLI_HardwareInformation *')
             ret = TLI_KST.GetHardwareInfoBlock(self.serial, ser_buf)
             if ret:
                 raise RuntimeError('KST101:%s(): %d (%s)'%(__funcname__(), ret, err_codes[ret]))
-            return cdata_dict(ser_buf, ffi)
+            return cdata_dict(ser_buf, package_ffi)
+
+        # Callable API functions.
+        # API calls; possible examples.
+        
+        # get_status_n
+        # get_status
+        def get_status():
+            pass
+
+        # wait_for_status
+        def wait_for_status():
+            pass
+
+        # home
+        def home():
+            pass
+
+        # is_homing
+        def is_homing():
+            pass
+
+        # is_homed
+        def is_homed():
+            pass
+
+        # wait_for_home
+        def wait_for_home():
+            pass
+
+        # get_position
+        def get_position():
+            pass
+
+        # set_position_reference
+        def set_position_reference():
+            pass
+
+        # move_by
+        def move_by():
+            pass
+
+        # move_to
+        def move_to():
+            pass
+
+        # jog - probably slew
+        def jog():
+            pass
+
+        # is_moving
+        def is_moving():
+            pass
+
+        # wait_move
+        def wait_move():
+            pass
+
+        # stop
+        def stop():
+            pass
+
+        # wait_for_stop
+        def wait_for_stop():
+            pass
+
+        # get_velocity_parameters
+        # setup_velocity
+        # get_jog_parameters
+        # setup_jog
+        # get_homing_parameters
+        # setup_homing
+        # get_gen_move_parameters
+        # setup_gen_move
+        # get_limit_switch_parameters
+        # setup_limit_switch
+        # get_kcube_trigio_parameters
+        # setup_kcube_trigio
+        # get_kcube_trigpos_parameters
+        # setup_kcube_trigpos
+       
 
     
 # %%
