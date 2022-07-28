@@ -21,7 +21,7 @@ def cdata_dict(cd, package_ffi: FFI):
     else:
         return cd
 # %% Struct definitions.
-ffi.cdef("""
+package_ffi.cdef("""
 struct TLI_DeviceInfo
 {
    DWORD typeID;
@@ -40,7 +40,7 @@ struct TLI_DeviceInfo
 ser_buf = package_ffi.new('struct TLI_DeviceInfo *') # Creates memory for struct.
 TLI_DeviceInfo_DICT = cdata_dict(ser_buf, package_ffi)
 
-ffi.cdef("""
+package_ffi.cdef("""
 struct TLI_HardwareInformation
 {
    DWORD serialNumber;
@@ -57,7 +57,7 @@ struct TLI_HardwareInformation
 ser_buf = package_ffi.new('struct TLI_HardwareInformation *') # Creates memory for struct.
 TLI_HardwareInformation_DICT = cdata_dict(ser_buf, package_ffi)
 
-ffi.cdef("""
+package_ffi.cdef("""
 struct MOT_VelocityParameters
 {
    int minVelocity;
@@ -68,7 +68,7 @@ struct MOT_VelocityParameters
 ser_buf = package_ffi.new('struct MOT_VelocityParameters *') # Creates memory for struct.
 MOT_VelocityParameters_DICT = cdata_dict(ser_buf, package_ffi)
 
-ffi.cdef("""
+package_ffi.cdef("""
 struct MOT_JogParameters
 {
    MOT_JogModes mode;
@@ -80,7 +80,7 @@ struct MOT_JogParameters
 ser_buf = package_ffi.new('struct MOT_JogParameters *') # Creates memory for struct.
 MOT_JogParameters_DICT = cdata_dict(ser_buf, package_ffi)
 
-ffi.cdef("""
+package_ffi.cdef("""
 struct MOT_HomingParameters
 {
    MOT_TravelDirection direction;
@@ -92,7 +92,7 @@ struct MOT_HomingParameters
 ser_buf = package_ffi.new('struct MOT_HomingParameters *') # Creates memory for struct.
 MOT_HomingParameters_DICT = cdata_dict(ser_buf, package_ffi)
 
-ffi.cdef("""
+package_ffi.cdef("""
 struct MOT_LimitSwitchParameters
 {
    MOT_LimitSwitchModes clockwiseHardwareLimit;
@@ -105,7 +105,7 @@ struct MOT_LimitSwitchParameters
 ser_buf = package_ffi.new('struct MOT_LimitSwitchParameters *') # Creates memory for struct.
 MOT_LimitSwitchParameters_DICT = cdata_dict(ser_buf, package_ffi)
 
-ffi.cdef("""
+package_ffi.cdef("""
 struct MOT_PowerParameters
 {
    WORD restPercentage;
@@ -115,7 +115,7 @@ struct MOT_PowerParameters
 ser_buf = package_ffi.new('struct MOT_PowerParameters *') # Creates memory for struct.
 MOT_PowerParameters_DICT = cdata_dict(ser_buf, package_ffi)
 
-ffi.cdef("""
+package_ffi.cdef("""
 struct KMOT_MMIParams
 {
    KMOT_WheelMode WheelMode;
@@ -133,7 +133,7 @@ struct KMOT_MMIParams
 ser_buf = package_ffi.new('struct KMOT_MMIParams *') # Creates memory for struct.
 KMOT_MMIParams_DICT = cdata_dict(ser_buf, package_ffi)
 
-ffi.cdef("""
+package_ffi.cdef("""
 struct KMOT_TriggerConfig
 {
    KMOT_TriggerPortMode Trigger1Mode;
@@ -146,7 +146,7 @@ struct KMOT_TriggerConfig
 ser_buf = package_ffi.new('struct KMOT_TriggerConfig *') # Creates memory for struct.
 KMOT_TriggerConfig_DICT = cdata_dict(ser_buf, package_ffi)
 
-ffi.cdef("""
+package_ffi.cdef("""
 struct KMOT_TriggerParams
 {
    __int32 TriggerStartPositionFwd;
@@ -163,7 +163,7 @@ struct KMOT_TriggerParams
 ser_buf = package_ffi.new('struct KMOT_TriggerParams *') # Creates memory for struct.
 KMOT_TriggerParams_DICT = cdata_dict(ser_buf, package_ffi)
 
-ffi.cdef("""
+package_ffi.cdef("""
 struct MOT_PIDLoopEncoderParams
 {
    MOT_PID_LoopMode loopMode;
@@ -177,7 +177,7 @@ struct MOT_PIDLoopEncoderParams
 ser_buf = package_ffi.new('struct MOT_PIDLoopEncoderParams *') # Creates memory for struct.
 MOT_PIDLoopEncoderParams_DICT = cdata_dict(ser_buf, package_ffi)
 
-ffi.cdef("""
+package_ffi.cdef("""
 struct tagSAFEARRAYBOUND
 {
    ULONG cElements;
@@ -187,7 +187,7 @@ struct tagSAFEARRAYBOUND
 ser_buf = package_ffi.new('struct tagSAFEARRAYBOUND *') # Creates memory for struct.
 tagSAFEARRAYBOUND_DICT = cdata_dict(ser_buf, package_ffi)
 
-ffi.cdef("""
+package_ffi.cdef("""
 struct tagSAFEARRAY
 {
    USHORT cDims;

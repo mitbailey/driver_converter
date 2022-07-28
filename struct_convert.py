@@ -82,7 +82,7 @@ while True:
         if (struct_begin != -1):
             within_struct = True
             struct_name = line[struct_begin + len('typedef struct') + 1 : len(line)]
-            o.write('ffi.cdef("""\n')
+            o.write('package_ffi.cdef("""\n')
             o.write('struct ' + struct_name + '\n')
             o.write('{\n')
             print(struct_name)

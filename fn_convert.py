@@ -3,8 +3,8 @@
 
 import re
 # Create a function-matching regex.
-fn_regex = re.compile(r'.+?\s+?.+?\s+?.+?\(.+?\);')
-# fn_regex = re.compile(r'.(int|float|double|char).;')
+# fn_regex = re.compile(r'.+?\s+?.+?\s+?.+?\(.+?\);')
+fn_regex = re.compile(r'^([^()]*\s+)*[^()]+\(.*\);')
 
 # Startup arguments.
 IN_FILENAME = 'input/tl.h'
@@ -20,6 +20,7 @@ else:
 
 prefixes = []
 opened_output_files = []
+ignorable_definitions = []
 
 i = 0
 pack = 0
@@ -36,6 +37,15 @@ while True:
     # line = line.replace(';', '')
     line = line.strip()
     # print(line)
+
+    # Finds empty #defines and makes a list of them.
+    if line.startswith('#define '):
+        # This ensures that in the event of:
+        # '#define IMPORTANT_VALUE 5' the ignorable string will be 'IMPORTANT_VALUE 5', and
+        # therefore won't ever match. However, if it is instead:
+        # '#define USELESS_DEFINE' then the string will be 'USELESS_DEFINE' and will match.
+        ignorable_definitions.append(line[8 : len(line)])
+        continue
 
     if fn_regex.match(line) is not None:
         # print(str(i) + ': ' + line)
@@ -79,23 +89,29 @@ while True:
                 break
             fn_ret = fn_ret + fn_split[k] + ' '
             k += 1
-        print(fn_ret)
 
-        print("Function name:")
-        print(fn_name)
+        # Removes blank #defines from in front of the return type; reduces clutter and confusion.
+        for substring in ignorable_definitions:
+            if fn_ret.startswith(substring):
+                fn_ret = fn_ret[len(substring) + 1 :]
+                break 
+
+        print("Function return type: " + fn_ret)
+
+        print("Function name: " + fn_name)
 
         fn_prefix = fn_name.split('_')[0]
-        print(fn_prefix)
+        print("Function prefix: " + fn_prefix)
 
         if AUTO_DETECT_PREFIX:
             fn_prefixed_outfilename = fn_prefix + '_' + OUT_FILENAME
-            print(fn_prefixed_outfilename)
+            print("Output file: " + fn_prefixed_outfilename)
             if fn_prefix not in prefixes:
                 # File not yet opened.
                 outfiles.append((fn_prefixed_outfilename, open('output/' + fn_prefixed_outfilename, 'w')))
                 prefixes.append(fn_prefix)
             o = [file for (name, file) in outfiles if name == fn_prefixed_outfilename][0]
-            print(o)
+            # print(o)
 
         # Remove prefix from function's name.
         fn_name = fn_name[len(fn_prefix) + 1: len(fn_name)]
@@ -114,10 +130,10 @@ while True:
 
         # Determine args as 'in' or 'out.'
         # If there are more than 0 arguments.
-        if fn_args[0] != '':
+        if fn_args[0] != '' and fn_args[0] != 'void':
             first = True
             for arg in fn_args:
-                print(arg)
+                # print(arg)
                 if (arg.find('**') != -1):
                     print('out')
                     if first:
@@ -132,9 +148,9 @@ while True:
                         o.write(', ')
                     print('in')
                     o.write('\'in\'')
-            if (fn_ret.find(' void') != -1):
+            if (fn_ret.find('void') != -1):
                 o.write(', ')
-        if (fn_ret.find(' void') != -1):
+        if (fn_ret.find('void') != -1):
             o.write('ret=ret_ignore')
 
         o.write(')\n')

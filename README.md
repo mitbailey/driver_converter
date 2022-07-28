@@ -1,4 +1,6 @@
-# Low-Level to Mid-Level Drivers Converter
+# C to Python Drivers Converter
+
+Converts a header, such as `tl.h`, to the format seen in `_thorlabs_kst_wrap_basic.py`.
 
 - `struct_convert.py` will parse the original header, looking for structs. It has two startup arguments that can be set in the file: `IN_FILENAME` and `OUT_FILENAME`. The script will parse `IN_FILENAME` and produce a file called `OUT_FILENAME`.
 
