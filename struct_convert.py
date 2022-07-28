@@ -57,8 +57,9 @@ while True:
             within_struct = False
             o.write('};\n')
             o.write('""", packed=' + str(pack) + ') # Defines struct, with packing.\n')
-            o.write('ser_buf = package_ffi.new(\'struct ' + struct_name + ' *\') # Creates memory for struct.\n')
-            o.write(struct_name + '_DICT = cdata_dict(ser_buf, package_ffi)\n\n')
+            # o.write('ser_buf = package_ffi.new(\'struct ' + struct_name + ' *\') # Creates memory for struct.\n')
+            # o.write(struct_name + '_DICT = cdata_dict(ser_buf, package_ffi)\n\n')
+            o.write('\n')
             print('- (END)')
         else:
             if (line == '{'):

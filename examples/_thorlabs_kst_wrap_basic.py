@@ -194,8 +194,6 @@ struct TLI_DeviceInfo
    short maxChannels;
 };
 """, packed=1) # Defines struct, with packing.
-ser_buf = package_ffi.new('struct TLI_DeviceInfo *') # Creates memory for struct.
-TLI_DeviceInfo_DICT = cdata_dict(ser_buf, package_ffi)
 
 package_ffi.cdef("""
 struct TLI_HardwareInformation
@@ -211,8 +209,6 @@ struct TLI_HardwareInformation
    short numChannels;
 };
 """, packed=1) # Defines struct, with packing.
-ser_buf = package_ffi.new('struct TLI_HardwareInformation *') # Creates memory for struct.
-TLI_HardwareInformation_DICT = cdata_dict(ser_buf, package_ffi)
 
 package_ffi.cdef("""
 struct MOT_VelocityParameters
@@ -222,8 +218,6 @@ struct MOT_VelocityParameters
    int maxVelocity;
 };
 """, packed=1) # Defines struct, with packing.
-ser_buf = package_ffi.new('struct MOT_VelocityParameters *') # Creates memory for struct.
-MOT_VelocityParameters_DICT = cdata_dict(ser_buf, package_ffi)
 
 package_ffi.cdef("""
 struct MOT_JogParameters
@@ -234,8 +228,6 @@ struct MOT_JogParameters
    MOT_StopModes stopMode;
 };
 """, packed=1) # Defines struct, with packing.
-ser_buf = package_ffi.new('struct MOT_JogParameters *') # Creates memory for struct.
-MOT_JogParameters_DICT = cdata_dict(ser_buf, package_ffi)
 
 package_ffi.cdef("""
 struct MOT_HomingParameters
@@ -246,8 +238,6 @@ struct MOT_HomingParameters
    unsigned int offsetDistance;
 };
 """, packed=1) # Defines struct, with packing.
-ser_buf = package_ffi.new('struct MOT_HomingParameters *') # Creates memory for struct.
-MOT_HomingParameters_DICT = cdata_dict(ser_buf, package_ffi)
 
 package_ffi.cdef("""
 struct MOT_LimitSwitchParameters
@@ -259,8 +249,6 @@ struct MOT_LimitSwitchParameters
    MOT_LimitSwitchSWModes softLimitMode;
 };
 """, packed=1) # Defines struct, with packing.
-ser_buf = package_ffi.new('struct MOT_LimitSwitchParameters *') # Creates memory for struct.
-MOT_LimitSwitchParameters_DICT = cdata_dict(ser_buf, package_ffi)
 
 package_ffi.cdef("""
 struct MOT_PowerParameters
@@ -269,8 +257,6 @@ struct MOT_PowerParameters
    WORD movePercentage;
 };
 """, packed=1) # Defines struct, with packing.
-ser_buf = package_ffi.new('struct MOT_PowerParameters *') # Creates memory for struct.
-MOT_PowerParameters_DICT = cdata_dict(ser_buf, package_ffi)
 
 package_ffi.cdef("""
 struct KMOT_MMIParams
@@ -287,8 +273,6 @@ struct KMOT_MMIParams
    __int16 reserved[4];
 };
 """, packed=1) # Defines struct, with packing.
-ser_buf = package_ffi.new('struct KMOT_MMIParams *') # Creates memory for struct.
-KMOT_MMIParams_DICT = cdata_dict(ser_buf, package_ffi)
 
 package_ffi.cdef("""
 struct KMOT_TriggerConfig
@@ -300,8 +284,6 @@ struct KMOT_TriggerConfig
    __int16 reserved[6];
 };
 """, packed=1) # Defines struct, with packing.
-ser_buf = package_ffi.new('struct KMOT_TriggerConfig *') # Creates memory for struct.
-KMOT_TriggerConfig_DICT = cdata_dict(ser_buf, package_ffi)
 
 package_ffi.cdef("""
 struct KMOT_TriggerParams
@@ -317,8 +299,6 @@ struct KMOT_TriggerParams
    __int32 reserved[6];
 };
 """, packed=1) # Defines struct, with packing.
-ser_buf = package_ffi.new('struct KMOT_TriggerParams *') # Creates memory for struct.
-KMOT_TriggerParams_DICT = cdata_dict(ser_buf, package_ffi)
 
 package_ffi.cdef("""
 struct MOT_PIDLoopEncoderParams
@@ -331,8 +311,6 @@ struct MOT_PIDLoopEncoderParams
    int PIDTolerance;
 };
 """, packed=1) # Defines struct, with packing.
-ser_buf = package_ffi.new('struct MOT_PIDLoopEncoderParams *') # Creates memory for struct.
-MOT_PIDLoopEncoderParams_DICT = cdata_dict(ser_buf, package_ffi)
 
 package_ffi.cdef("""
 struct tagSAFEARRAYBOUND
@@ -341,8 +319,6 @@ struct tagSAFEARRAYBOUND
    LONG lLbound;
 };
 """, packed=1) # Defines struct, with packing.
-ser_buf = package_ffi.new('struct tagSAFEARRAYBOUND *') # Creates memory for struct.
-tagSAFEARRAYBOUND_DICT = cdata_dict(ser_buf, package_ffi)
 
 package_ffi.cdef("""
 struct tagSAFEARRAY
@@ -355,8 +331,6 @@ struct tagSAFEARRAY
    SAFEARRAYBOUND rgsabound[ 1 ];
 };
 """, packed=1) # Defines struct, with packing.
-ser_buf = package_ffi.new('struct tagSAFEARRAY *') # Creates memory for struct.
-tagSAFEARRAY_DICT = cdata_dict(ser_buf, package_ffi)
 
 # %% TLI Functions
 class TLIBase(NiceLib): # this would be the base of the Thorlabs namespace, which would provide static methods common across all Thorlabs sub APIs
