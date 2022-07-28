@@ -798,79 +798,138 @@ class Thorlabs: # Wrapper class for TLI methods
         
         # get_status_n
         # get_status
-        def get_status():
+        def get_status(self):
             pass
 
         # wait_for_status
-        def wait_for_status():
+        def wait_for_status(self):
             pass
 
         # home
-        def home():
-            pass
+        def home(self):
+            retval = TLI_KST.Home(self.serial)
+            return retval
 
         # is_homing
-        def is_homing():
+        def is_homing(self):
             pass
 
         # is_homed
-        def is_homed():
+        def is_homed(self):
             pass
 
         # wait_for_home
-        def wait_for_home():
+        def wait_for_home(self):
             pass
 
         # get_position
-        def get_position():
-            pass
+        def get_position(self):
+            retval = TLI_KST.GetPosition(self.serial)
+            return retval
 
         # set_position_reference
         def set_position_reference():
             pass
 
         # move_by
-        def move_by():
-            pass
+        def move_by(self, difference):
+            retval = TLI_KST.MoveRelative(self.serial, difference)
+            return retval
 
         # move_to
-        def move_to():
-            pass
+        def move_to(self, position):
+            retval = TLI_KST.MoveToPosition(self.serial, position)
+            return retval
 
-        # jog - probably slew
-        def jog():
-            pass
+        # jog - probably slew?
+        def jog(self, stepsize, direction):
+            TLI_KST.SetJogStepSize(self.serial, stepsize)
+            if direction == 'forward' or direction == 'forwards':
+                _direction = MOT_TravelDirection[1]
+            elif direction == 'backward' or direction == 'backwards':
+                _direction = MOT_TravelDirection[2]
+            else:
+                _direction = MOT_TravelDirection[0]
+            retval = TLI_KST.MoveJog(self.serial, _direction)
+            return retval
 
         # is_moving
-        def is_moving():
+        def is_moving(self):
             pass
 
         # wait_move
-        def wait_move():
+        # Needs some kind of condition.
+        def wait_move(self):
             pass
 
         # stop
-        def stop():
-            pass
+        def stop(self):
+            retval = TLI_KST.StopProfiled(self.serial)
+            return retval
+
+        def emergency_stop(self):
+            retval = TLI_KST.StopImmediate(self.serial)
+            return retval
 
         # wait_for_stop
-        def wait_for_stop():
+        def wait_for_stop(self):
             pass
 
         # get_velocity_parameters
+        def get_velocity_parameters(self):
+            pass
+
         # setup_velocity
+        def setup_velocity(self):
+            pass
+
         # get_jog_parameters
+        def get_jog_parameters(self):
+            pass
+
         # setup_jog
+        def setup_jog(self):
+            pass
+
         # get_homing_parameters
+        def get_homing_parameters(self):
+            pass
+
         # setup_homing
+        def setup_homing(self):
+            pass
+
         # get_gen_move_parameters
+        def get_gen_move_parameters(self):
+            pass
+
         # setup_gen_move
+        def setup_gen_move(self):
+            pass
+
         # get_limit_switch_parameters
+        def get_limit_switch_parameters(self):
+            pass
+
         # setup_limit_switch
+        def setup_limit_switch(self):
+            pass
+
         # get_kcube_trigio_parameters
+        def get_kcube_trigio_parameters(self):
+            pass
+
         # setup_kcube_trigio
+        def setup_kcube_trigio(self):
+            pass
+
         # get_kcube_trigpos_parameters
+        def get_kcube_trigpos_parameters(self):
+            pass
+
         # setup_kcube_trigpos
+        def setup_kcube_trigpos(self):
+            pass
        
 
     
