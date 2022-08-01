@@ -5,6 +5,7 @@ from nicelib import load_lib, NiceLib, Sig, NiceObject, RetHandler, ret_ignore
 from cffi import FFI
 from inspect import getmembers
 import warnings
+from time import sleep
 # %% Get current function name
 def __funcname__():
     import inspect
@@ -692,6 +693,8 @@ class Thorlabs: # Wrapper class for TLI methods
             setup_kcube_trigpos
         """
 
+        open = False
+
         # TLI List method
         open_devices = [] # List of opened devices
         @staticmethod
@@ -724,10 +727,29 @@ class Thorlabs: # Wrapper class for TLI methods
                 raise ValueError('Invalid serial %d: KST101 Serial starts with %s'%(serialNumber, str(Thorlabs.TYPE_KST101)))
             elif serialNumber in Thorlabs.KST101.open_devices:
                 raise RuntimeError('Serial %d already in use.'%(serialNumber))
-            elif serialNumber not in Thorlabs.KST101.ListDevices():
+            elif serialNumber not in Thorlabs.KST101._ListDevices():
                 raise RuntimeError('Serial %d not in device list.'%(serialNumber))
             self.serial = str(serialNumber)
             self.open = False
+            self._Open()
+
+            sleep(1)
+
+            print("KST101.__init__: Beginning automatic homing...")
+            retval = self.home()
+            sleep(1)
+
+            if (retval == 0):
+                while True:
+                    currpos = int(self.get_position())
+                    if (currpos == 0):
+                        print("KST101.__init__: At home.")
+                        break
+                    else:
+                        print("KST101.__init__: Homing... (" + str(currpos) + ")")
+                    sleep(1)
+            else:
+                print("KST101.__init__: Homing error (" + str(retval) + ").")
 
         # SCC Methods
         def _Open(self) -> bool:
@@ -747,15 +769,22 @@ class Thorlabs: # Wrapper class for TLI methods
                 raise RuntimeError('KST101:%s(): %d (%s)'%(__funcname__(), ret, err_codes[ret]))
             Thorlabs.KST101.open_devices.append(int(self.serial))
             self.open = True
+            # Run self connection test.
+            ret = self._CheckConnection
+            if ret == False:
+                self._Close()
+                raise RuntimeError('Device opened but connection test failed.')
+            self._StartPolling(100)
             return True
 
         def __del__(self):
             if self.open:
-                self.Close()
+                self._Close()
         
         def _Close(self) -> None:
             """Close connection to the KST101 Controller.
             """
+            self._StopPolling()
             TLI_KST.Close(self.serial)
             Thorlabs.KST101.open_devices.remove(int(self.serial))
             self.serial = None
@@ -815,6 +844,14 @@ class Thorlabs: # Wrapper class for TLI methods
                 raise RuntimeError('KST101:%s(): %d (%s)'%(__funcname__(), ret, err_codes[ret]))
             return cdata_dict(ser_buf, package_ffi)
 
+        def _StartPolling(self, rate_ms):
+           ret = TLI_KST.StartPolling(self.serial, rate_ms)
+           return ret
+
+        def _StopPolling(self):
+            ret = TLI_KST.StopPolling(self.serial)
+            return ret
+
         # Callable API functions.
         # API calls; possible examples.
         
@@ -846,6 +883,7 @@ class Thorlabs: # Wrapper class for TLI methods
 
         # get_position
         def get_position(self):
+            # TLI_KST.RequestPosition(self.serial)
             retval = TLI_KST.GetPosition(self.serial)
             return retval
 
@@ -958,6 +996,7 @@ class Thorlabs: # Wrapper class for TLI methods
 # %%
 if __name__ == '__main__':
     from pprint import pprint
+
     serials = Thorlabs.ListDevicesAny()
     print('Serial number(s): ', end = '')
     pprint(serials)
@@ -966,9 +1005,49 @@ if __name__ == '__main__':
     pprint(devinfo)
     print('Device Info(s): ', end = '')
     pprint(Thorlabs.GetDeviceInfo(serials))
-    motor = Thorlabs.KST101(serials[0])
-    print(motor.Open())
-    print(motor.GetHardwareInfo())
-    motor.Identify()
-    del motor
+    
+    print("INITIALIZING DEVICE")
+    motor_ctrl = Thorlabs.KST101(serials[0])
+    sleep(1)
+    
+    # print(motor_ctrl.Open())
+    # print(motor_ctrl.GetHardwareInfo())
+    # motor_ctrl.Identify()
+    
+    print('Connection status: ' + str(motor_ctrl._CheckConnection()))
+    sleep(1)
+
+    # print('Backlight on device should now blink for 5 seconds...')
+    # motor_ctrl._Identify()
+
+    print('Current position: ' + str(motor_ctrl.get_position()))
+    sleep(1)
+
+    # motor_ctrl.home()
+
+    print("ATTEMPTING TO MOVE")
+    MM_TO_IDX = 2184532
+    DESIRED_POSITION_MM = 15
+    DESIRED_POSITION_IDX = int(DESIRED_POSITION_MM * MM_TO_IDX)
+    retval = motor_ctrl.move_to(DESIRED_POSITION_IDX)
+    sleep(1)
+
+    if (retval == 0):
+        while True:
+            currpos = int(motor_ctrl.get_position())
+            if (currpos == DESIRED_POSITION_IDX):
+                print("At desired position.")
+                break
+            else:
+                print("Moving... (" + str(currpos) + ")")
+            sleep(1)
+    else:
+        print("Moving error (" + str(retval) + ").")
+
+    print('Final position: ' + str(motor_ctrl.get_position()))
+    sleep(1)
+
+    # print('Move by retval: ' + str(motor_ctrl.move_by(100)))
+
+    del motor_ctrl
 # %%
