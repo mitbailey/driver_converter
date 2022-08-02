@@ -1151,7 +1151,7 @@ if __name__ == '__main__':
 
     # MM_TO_NM = 10e6
     # MM_TO_IDX = 2184532 # Based on motor/stage...
-    MM_TO_IDX = 7471104 # 2184560.64
+    MM_TO_IDX = 2184560.64 # 7471104
 
     # DESIRED_POSITION_NM = 0
 
@@ -1184,9 +1184,10 @@ if __name__ == '__main__':
     #     print("Moving error (" + str(retval) + ").")
 
     print('Final position: ' + str(motor_ctrl.get_position()))
-    sleep(1)
-
-    print("Waiting...")
+    print("Press any key for next move...")
+    input()
+    retval = motor_ctrl.move_by(DESIRED_POSITION_IDX * 2, True) # another 10 mm
+    print("Press any key to exit...")
     input()
 
     # print('Move by retval: ' + str(motor_ctrl.move_by(100)))
