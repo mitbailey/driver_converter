@@ -6,6 +6,11 @@ from cffi import FFI
 from inspect import getmembers
 import warnings
 from time import sleep
+import math as m
+
+def dcos(deg):
+    return m.degrees((m.cos(m.radians(32))))
+    
 # %% Get current function name
 def __funcname__():
     import inspect
@@ -157,6 +162,31 @@ MOT_MovementDirections = [
     'Forwards',
     'Reverse'
 ]
+
+KST_MessageType = {
+    'GenericDevice': 0,
+    'GenericPiezo': 1,
+    'GenericMotor': 2,
+    'GenericDCMotor': 3,
+    'GenericSimpleMotor': 4,
+    'RackDevice': 5,
+    'Laser': 6,
+    'TECCtlr': 7,
+    'Quad': 8,
+    'NanoTrak': 9,
+    'Specialized': 10,
+    'Solenoid': 11,
+    'InertialMotorCtlr': 12,
+    'LiquidCrystalCtlr': 13
+}
+
+# if KST_MessageType[] key not in KST_MessageId, not implemented
+
+KST_MessageId = {
+    'GenericDevice': {'settingsInitialized': 0, 'settingsUpdated': 1, 'settingsExtern': 2, 'error': 3, 'close': 4, 'settingsReset': 5},
+    'GenericMotor': {'Homed': 0, 'Moved': 1, 'Stopped': 2, 'LimitUpdated': 3}
+}
+
 
 # %% Return Handler Example
 @RetHandler(num_retvals=0)
@@ -694,6 +724,9 @@ class Thorlabs: # Wrapper class for TLI methods
         """
 
         open = False
+        dev_mtype = 0
+        dev_mid = 0
+        dev_mdata = 0
 
         # TLI List method
         open_devices = [] # List of opened devices
@@ -712,7 +745,7 @@ class Thorlabs: # Wrapper class for TLI methods
             return _devs
         
         # Init stores the serial number
-        def __init__(self, serialNumber: int):
+        def __init__(self, serialNumber: int, pollingIntervalMs: int = 100):
             """Create an instance of Thorlabs KST101 Stepper Motor Controller
 
             Args:
@@ -731,28 +764,19 @@ class Thorlabs: # Wrapper class for TLI methods
                 raise RuntimeError('Serial %d not in device list.'%(serialNumber))
             self.serial = str(serialNumber)
             self.open = False
-            self._Open()
+            self._Open(pollingIntervalMs)
 
             sleep(1)
-
+            print('Init: Position: %d'%(self.get_position()))
             print("KST101.__init__: Beginning automatic homing...")
-            retval = self.home()
-            sleep(1)
-
-            if (retval == 0):
-                while True:
-                    currpos = int(self.get_position())
-                    if (currpos == 0):
-                        print("KST101.__init__: At home.")
-                        break
-                    else:
-                        print("KST101.__init__: Homing... (" + str(currpos) + ")")
-                    sleep(1)
-            else:
-                print("KST101.__init__: Homing error (" + str(retval) + ").")
+            if True:
+                retval = self.home()
+                if retval:
+                    raise RuntimeError('Motor %s: Could not home, error %s'%(self.serial, err_codes[retval]))
+                self.wait_for('GenericMotor', 'Homed')
 
         # SCC Methods
-        def _Open(self) -> bool:
+        def _Open(self, pollingIntervalMs: int = 100) -> bool:
             """Open connection to the KST101 Controller.
 
             Raises:
@@ -774,7 +798,7 @@ class Thorlabs: # Wrapper class for TLI methods
             if ret == False:
                 self._Close()
                 raise RuntimeError('Device opened but connection test failed.')
-            self._StartPolling(100)
+            self._StartPolling(pollingIntervalMs)
             return True
 
         def __del__(self):
@@ -844,7 +868,7 @@ class Thorlabs: # Wrapper class for TLI methods
                 raise RuntimeError('KST101:%s(): %d (%s)'%(__funcname__(), ret, err_codes[ret]))
             return cdata_dict(ser_buf, package_ffi)
 
-        def _StartPolling(self, rate_ms):
+        def _StartPolling(self, rate_ms: int):
            ret = TLI_KST.StartPolling(self.serial, rate_ms)
            return ret
 
@@ -852,9 +876,79 @@ class Thorlabs: # Wrapper class for TLI methods
             ret = TLI_KST.StopPolling(self.serial)
             return ret
 
+        def _WaitFor(self) -> bool:
+            mtype = package_ffi.new("WORD[1]")
+            mid = package_ffi.new("WORD[1]")
+            mdata = package_ffi.new("DWORD[1]")
+            ret = TLI_KST.WaitForMessage(self.serial, mtype, mid, mdata)
+            self.dev_mtype = int(mtype[0])
+            self.dev_mid = int(mid[0])
+            self.dev_mdata = int(mdata[0])
+            # print('%s: %d: mtype: %d, mid: %d, mdata: %d'%(__funcname__(), ret, int(mtype[0]), int(mid[0]), int(mdata[0])))
+            return (ret, int(mtype[0]), int(mid[0]), int(mdata[0]))
+
         # Callable API functions.
         # API calls; possible examples.
-        
+
+        def set_stage(self, stype: str):
+            if stype not in KST_Stages:
+                raise RuntimeError('%s not a valid stage type'%(stype))
+            ret = TLI_KST.SetStageType(self.serial, KST_Stages.index(stype))
+            return ret
+
+        def wait_for(self, mtype: str, mid: str) -> bool:
+            if mtype not in KST_MessageType.keys():
+                raise RuntimeError('%s not a valid message type'%(mtype))
+            if mid not in KST_MessageId[mtype].keys():
+                raise RuntimeError('%s not a valid message id for device type %s'%(mid, mtype))
+            ret = True
+            TLI_KST.ClearMessageQueue(self.serial)
+            while ret:
+                ret, _mtype, _mid, _mdata = self._WaitFor()
+                if ret == False:
+                    return False
+                if _mtype == KST_MessageType[mtype] and _mid == KST_MessageId[mtype][mid]:
+                    break
+            return ret
+            
+        def state_motor_params(self):
+            stepsPerRev = package_ffi.new("double *")
+            gearBoxRatio = package_ffi.new("double *")
+            pitch = package_ffi.new("double *")
+
+            stepsPerRev[0] = -1
+            gearBoxRatio[0] = -1
+            pitch[0] = -1
+
+            err = TLI_KST.GetMotorParamsExt(self.serial, stepsPerRev, gearBoxRatio, pitch)
+            print("Err: " + str(err) + "; StepsPerRev: " + str(stepsPerRev[0]) + ", GearBoxRatio: " + str(gearBoxRatio[0]) + ", Pitch: " + str(pitch[0]))
+
+        def state_motor_velocity_limits(self):
+            maxVelocity = package_ffi.new("double *")
+            maxAcceleration = package_ffi.new("double *")
+
+            err = TLI_KST.GetMotorVelocityLimits(self.serial, maxVelocity, maxAcceleration)
+            print("Err: " + str(err) + "; MaxVelocity: " + str(maxVelocity[0]) + ", MaxAcceleration: " + str(maxAcceleration[0]))
+
+        def state_motor_travel_limits(self):
+            minPosition = package_ffi.new("double *")
+            maxPosition = package_ffi.new("double *")
+
+            err = TLI_KST.GetMotorTravelLimits(self.serial, minPosition, maxPosition)
+            print("Err: " + str(err) + "; MinPosition: " + str(minPosition[0]) + ", MaxPosition: " + str(maxPosition[0]))
+
+        def state_motor_travel_mode(self):
+            print("Travel mode (see: MOT_TravelModes): " + str(TLI_KST.GetMotorTravelMode(self.serial)))
+
+        def state_stage_axis_max_pos(self):
+            print("Stage Max Pos: " + str(TLI_KST.GetStageAxisMaxPos(self.serial)))
+
+        def state_stage_axis_min_pos(self):
+            print("Stage Min Pos: " + str(TLI_KST.GetStageAxisMinPos(self.serial)))
+
+        def message_queue_size(self):
+            return TLI_KST.MessageQueueSize(self.serial)
+
         # get_status_n
         # get_status
         def get_status(self):
@@ -892,13 +986,17 @@ class Thorlabs: # Wrapper class for TLI methods
             pass
 
         # move_by
-        def move_by(self, difference):
+        def move_by(self, difference: int, block: bool):
             retval = TLI_KST.MoveRelative(self.serial, difference)
+            if block:
+                self.wait_for('GenericMotor', 'Moved')
             return retval
 
         # move_to
-        def move_to(self, position):
+        def move_to(self, position: int, block: bool):
             retval = TLI_KST.MoveToPosition(self.serial, position)
+            if block:
+                self.wait_for('GenericMotor', 'Moved')
             return retval
 
         # jog - probably slew?
@@ -991,7 +1089,6 @@ class Thorlabs: # Wrapper class for TLI methods
         def setup_kcube_trigpos(self):
             pass
        
-
     
 # %%
 if __name__ == '__main__':
@@ -1010,6 +1107,10 @@ if __name__ == '__main__':
     motor_ctrl = Thorlabs.KST101(serials[0])
     sleep(1)
     
+    print("LISTING DEVICES: ")
+    print(motor_ctrl._ListDevices())
+    sleep(1)    
+
     # print(motor_ctrl.Open())
     # print(motor_ctrl.GetHardwareInfo())
     # motor_ctrl.Identify()
@@ -1023,29 +1124,70 @@ if __name__ == '__main__':
     print('Current position: ' + str(motor_ctrl.get_position()))
     sleep(1)
 
-    # motor_ctrl.home()
-
-    print("ATTEMPTING TO MOVE")
-    MM_TO_IDX = 2184532
-    DESIRED_POSITION_MM = 15
-    DESIRED_POSITION_IDX = int(DESIRED_POSITION_MM * MM_TO_IDX)
-    retval = motor_ctrl.move_to(DESIRED_POSITION_IDX)
+    print("Getting Motor Data:")
+    motor_ctrl.state_motor_params()
     sleep(1)
+    motor_ctrl.state_motor_velocity_limits()
+    sleep(1)
+    motor_ctrl.state_motor_travel_limits()
+    sleep(1)
+    motor_ctrl.state_motor_travel_mode()
+    sleep(1)
+    motor_ctrl.state_stage_axis_max_pos()
+    sleep(1)
+    motor_ctrl.state_stage_axis_min_pos()
+    sleep(1)
+    
+    print("Inbox:", motor_ctrl.message_queue_size())
 
-    if (retval == 0):
-        while True:
-            currpos = int(motor_ctrl.get_position())
-            if (currpos == DESIRED_POSITION_IDX):
-                print("At desired position.")
-                break
-            else:
-                print("Moving... (" + str(currpos) + ")")
-            sleep(1)
+    if (motor_ctrl.message_queue_size() > 0):
+        print("You've got mail!")
     else:
-        print("Moving error (" + str(retval) + ").")
+        print("No messages in queue.")
+
+    # motor_ctrl.home()
+    print(motor_ctrl.set_stage('ZST25'))
+    print("ATTEMPTING TO MOVE")
+
+    # MM_TO_NM = 10e6
+    # MM_TO_IDX = 2184532 # Based on motor/stage...
+    MM_TO_IDX = 7471104 # 2184560.64
+
+    # DESIRED_POSITION_NM = 0
+
+    # order = 1
+    # zero_order_offset = 1
+    # L = 550
+    # grating_density = 0.0012
+    # dX = DESIRED_POSITION_NM
+    # a = ((2) * (1 / grating_density) * dcos(32) * ((dX + zero_order_offset)/(L)) * (MM_TO_NM)) / (order)
+    # print("a: " + str(a))
+
+    DESIRED_POSITION_MM = 5
+
+    # DESIRED_POSITION_MM = int((DESIRED_POSITION_NM  ) + 1)
+    DESIRED_POSITION_IDX = int(DESIRED_POSITION_MM * MM_TO_IDX)
+    # retval = motor_ctrl.move_to(DESIRED_POSITION_IDX, True)
+    retval = motor_ctrl.move_to(DESIRED_POSITION_IDX, True)
+    # sleep(1)
+
+    # if (retval == 0):
+    #     while True:
+    #         currpos = int(motor_ctrl.get_position())
+    #         if (currpos == DESIRED_POSITION_IDX):
+    #             print("At desired position.")
+    #             break
+    #         else:
+    #             print("Moving... (" + str(currpos) + ")")
+    #         sleep(1)
+    # else:
+    #     print("Moving error (" + str(retval) + ").")
 
     print('Final position: ' + str(motor_ctrl.get_position()))
     sleep(1)
+
+    print("Waiting...")
+    input()
 
     # print('Move by retval: ' + str(motor_ctrl.move_by(100)))
 
