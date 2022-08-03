@@ -1,4 +1,5 @@
-import _thorlabs_kst_wrap_basic.py
+import _thorlabs_kst_wrap_basic
+import picoammeter
 
 # Functions for the Early GUI.
 def initialize_kst101():

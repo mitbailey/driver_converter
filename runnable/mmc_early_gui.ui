@@ -38,7 +38,7 @@
       <item row="1" column="0">
        <widget class="QLabel" name="label_3">
         <property name="text">
-         <string>Step (nm):</string>
+         <string>Step (mm):</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignCenter</set>
@@ -71,7 +71,7 @@
       <item row="0" column="2">
        <widget class="QLabel" name="label_2">
         <property name="text">
-         <string>Stop (nm):</string>
+         <string>Stop (mm):</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignCenter</set>
@@ -81,7 +81,7 @@
       <item row="0" column="0">
        <widget class="QLabel" name="label">
         <property name="text">
-         <string>Start (nm):</string>
+         <string>Start (mm):</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignCenter</set>

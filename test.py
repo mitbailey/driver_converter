@@ -1,7 +1,7 @@
 import math as m
 
 def dcos(deg):
-    return m.degrees((m.cos(m.radians(32))))
+    return m.degrees((m.cos(m.radians(deg))))
     
 MM_TO_NM = 10e6
 MM_TO_IDX = 2184532 # Based on motor/stage...
