@@ -1088,8 +1088,7 @@ class Thorlabs: # Wrapper class for TLI methods
         # setup_kcube_trigpos
         def setup_kcube_trigpos(self):
             pass
-       
-    
+
 # %%
 if __name__ == '__main__':
     from pprint import pprint
