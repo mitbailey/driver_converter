@@ -6,14 +6,6 @@ s = serial.Serial('COM3', 9600, timeout=1)
 print('Communicating on port %s.'%(s.name))
 # s.write(b'*IDN?\r')
 
-# s.write(b'CONF:CURR?\r')
-# buf = s.read(128).decode('utf-8').rstrip()
-# print(buf)
-
-# s.write(b'MEAS?\r')
-# buf = s.read(128).decode('utf-8').rstrip()
-# print(buf)
-
 s.write(b'*IDN?\r')
 buf = s.read(128).decode('utf-8').rstrip()
 print(buf)
@@ -24,9 +16,23 @@ else:
     print("Keithley Model 6485 not found.")
     exit()
 
-# s.write(b'FETC?\r')
-# buf = s.read(128).decode('utf-8').rstrip()
-# print(buf)
+s.write(b'ARM:COUN 10\r')
+buf = s.read(128).decode('utf-8').rstrip()
+print(buf)
+# exit()
+
+s.write(b'CONF:CURR?\r')
+buf = s.read(128).decode('utf-8').rstrip()
+print(buf)
+
+s.write(b'MEAS?\r')
+buf = s.read(128).decode('utf-8').rstrip()
+print(buf)
+
+
+s.write(b'FETC?\r')
+buf = s.read(128).decode('utf-8').rstrip()
+print(buf)
 
 # s.write(b'TRIG:COUN 10\r')
 # buf = s.read(128).decode('utf-8').rstrip()

@@ -56,6 +56,11 @@ class Picoammeter:
             raise RuntimeError('Could not find Keithley Model 6485!')
         print('Using port %s.'%(self.port))
 
+        # Set the ARM count properly.
+        s.write(b'ARM:COUN 1\r')
+        buf = s.read(128).decode('utf-8').rstrip()
+        print(buf)
+
     def sample_data(self, samples, pos):
         out = ''
         for i in range (samples):
@@ -64,6 +69,7 @@ class Picoammeter:
             print(buf)
             out += str(pos) + ',' + buf + '\n'
             spbuf = buf.split(',')
+            # TODO: If we cannot split, the device is having errors.
             if int(float(spbuf[2])):
                 print("ERROR #%d", int(float(spbuf[2])))
         return out
