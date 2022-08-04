@@ -37,7 +37,8 @@ class Picoammeter:
     port = ''
     s = None
 
-    def __init__(self):
+    def __init__(self, samples):
+        self.samples = samples
         for port in serial_ports():
             s = serial.Serial(port, 9600, timeout=1)
             print('Trying port %s.'%(port))
@@ -61,14 +62,21 @@ class Picoammeter:
         buf = s.read(128).decode('utf-8').rstrip()
         print(buf)
 
-    def sample_data(self, samples, pos):
+    def set_samples(self, samples):
+        self.samples = samples
+
+    def sample_data(self, pos, progbar, cidx, nidx):
         out = ''
-        for i in range (samples):
+        tot = nidx * self.samples
+        frac = cidx * self.samples
+        for i in range (self.samples):
             self.s.write(b'READ?\r')
             buf = self.s.read(128).decode('utf-8').rstrip()
             print(buf)
             out += str(pos) + ',' + buf + '\n'
             spbuf = buf.split(',')
+            frac += 1
+            progbar.emit(round(frac * 100/tot))
             # TODO: If we cannot split, the device is having errors.
             if int(float(spbuf[2])):
                 print("ERROR #%d", int(float(spbuf[2])))

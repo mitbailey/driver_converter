@@ -22,13 +22,14 @@ from PyQt5.QtWidgets import (QMainWindow, QDoubleSpinBox, QApplication, QComboBo
                              QFormLayout, QHBoxLayout, QLabel, QListView, QMessageBox, QPushButton,
                              QSizePolicy, QSlider, QStyle, QToolButton, QVBoxLayout, QWidget, QLineEdit, QPlainTextEdit,
                              QTableWidget, QTableWidgetItem, QSplitter, QAbstractItemView, QStyledItemDelegate, QHeaderView, QFrame, QProgressBar, QCheckBox, QToolTip, QGridLayout)
+from PyQt5.QtCore import QTimer
 from io import TextIOWrapper
 
 import _thorlabs_kst_wrap_basic as tlkt
 import picoammeter as pico
 import math as m
 import os
-
+import numpy as np
 import datetime as dt
 
 import asyncio
@@ -49,20 +50,25 @@ MM_TO_IDX = 2184560.64
 #     return a * MM_TO_IDX
 
 # Imports .ui file.
+class Scan(QThread):
+    pass
+
 class Ui(QMainWindow):
     manual_prefix = 'manual'
     auto_prefix = 'automatic'
     manual_dir = './data'
     auto_dir = './data'
-    start = 0
-    stop = 0
-    step = 0
+    startpos = 0
+    stoppos = 0
+    steppos = 0
     save_data = False
 
     manual_position = 0
 
     pa = None
     motor_ctrl = None
+
+    current_position = -1
 
     def __init__(self, application):
         self.application = application
@@ -72,7 +78,7 @@ class Ui(QMainWindow):
         self.setWindowTitle("MMC Early GUI")
 
         #  Picoammeter init.
-        self.pa = pico.Picoammeter()
+        self.pa = pico.Picoammeter(10)
 
         #  KST101 init.
         serials = serials = tlkt.Thorlabs.ListDevicesAny()
@@ -84,6 +90,7 @@ class Ui(QMainWindow):
         # Move to 1mm (0nm)
         # self.motor_ctrl.move_to(1 * MM_TO_IDX, True)
         
+
         # GUI init.
         self.scan_button = self.findChild(QPushButton, "pushButton_3")
         self.save_data_checkbox = self.findChild(QCheckBox, "checkBox_4")
@@ -120,20 +127,45 @@ class Ui(QMainWindow):
         self.step_spin.valueChanged.connect(self.step_changed)
         self.pos_spin.valueChanged.connect(self.manual_pos_changed)
 
+        self.scan = Scan()
+        self.scan.statusUpdate.connect(self.scan_statusUpdate_slot)
+        self.scan.progress.connect(self.scan_progress_slot)
+
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_position_displays)
+        self.timer.start(100)
+
         self.show()
+
+    def scan_statusUpdate_slot(self, status):
+        self.scan_status.setText(status)
+
+    def scan_progress_slot(self, curr_percent):
+        self.scan_progress.setValue(curr_percent)
+
+    def scan_complete_slot(self):
+        self.scan_status.setText("IDLE")
+        self.scan_progress.reset()
+
+    def update_position_displays(self):
+        self.current_position = self.motor_ctrl.get_position()
+        self.moving = self.motor_ctrl.is_moving()
+        self.currpos_mm_disp.setText('%.4f mm'%(self.current_position / MM_TO_IDX))
+        self.currpos_steps_disp.setText(str(self.current_position) + ' steps')
 
     def scan_button_pressed(self):
         print("Scan button pressed!")
-        self.initiate_scan()
-        # asyncio.run(self.initiate_scan())
+        self.scan.set_params(self)
+        self.scan.start()
 
     def manual_collect_button_pressed(self):
         print("Manual collect button pressed!")
         self.take_data()
 
     def move_to_position_button_pressed(self):
+        self.moving = True
         print("Move to position button pressed!")
-        self.motor_ctrl.move_to(self.manual_position, True)
+        self.motor_ctrl.move_to(self.manual_position, False)
 
     def save_checkbox_toggled(self):
         print("Save checkbox toggled.")
@@ -161,15 +193,15 @@ class Ui(QMainWindow):
 
     def start_changed(self):
         print("Start changed to: %s mm"%(self.start_spin.value()))
-        self.start = self.start_spin.value() * MM_TO_IDX
+        self.startpos = self.start_spin.value() * MM_TO_IDX
 
     def stop_changed(self):
         print("Stop changed to: %s mm"%(self.stop_spin.value()))
-        self.stop = self.stop_spin.value() * MM_TO_IDX
+        self.stoppos = self.stop_spin.value() * MM_TO_IDX
 
     def step_changed(self):
         print("Step changed to: %s mm"%(self.step_spin.value()))
-        self.step = self.step_spin.value() * MM_TO_IDX
+        self.steppos = self.step_spin.value() * MM_TO_IDX
 
     def manual_pos_changed(self):
         print("Manual position changed to: %s mm"%(self.pos_spin.value()))
@@ -186,87 +218,141 @@ class Ui(QMainWindow):
         self.sav_file.write('# %s\n'%(tnow.strftime('%Y-%m-%d %H:%M:%S')))
         self.sav_file.write('# Steps/mm: %f\n'%(MM_TO_IDX))
         self.sav_file.write('# Position (step),Current(A),Timestamp,Error Code\n')
-        self.sav_file.write(self.pa.sample_data(10, self.motor_ctrl.get_position()))
+        pos = self.motor_ctrl.get_position()
+        self.current_position = pos
+        self.sav_file.write(self.pa.sample_data(10, pos))
 
         self.sav_file.close()
 
     # TODO: Use QThreads to prevent freezing GUI. For now, `self.application.processEvents()`.
     # TODO: (cont.): https://www.xingyulei.com/post/qt-threading/
-    async def initiate_scan(self):
-        print("Save to file? " + str(self.save_data))
+    # def initiate_scan(self):
+    #     print("Save to file? " + str(self.save_data))
 
-        self.scan_status.setText("PREPARING")
-        self.scan_progress.setMinimum(self.start)
-        self.scan_progress.setMaximum(self.stop)
-        self.application.processEvents()
+    #     self.scan_status.setText("PREPARING")
+    #     self.scan_progress.setMinimum(self.start)
+    #     self.scan_progress.setMaximum(self.stop)
+    #     self.application.processEvents()
 
-        if (self.save_data):
+    #     if (self.save_data):
+    #         tnow = dt.datetime.now()
+            
+    #         filename = self.auto_dir + '/' + self.auto_prefix + '_' + tnow.strftime('%Y%m%d%H%M%S') + "_data.csv"
+    #         os.makedirs(os.path.dirname(filename), exist_ok=True)
+    #         self.sav_file = open(filename, 'w')
+
+    #         # print(type(self.sav_file))
+    #     # Move to start and collect data.
+    #     self.scan_status.setText("MOVING")
+    #     self.application.processEvents()
+    #     self.motor_ctrl.move_to(self.start, True)
+        
+    #     self.scan_status.setText("SAMPLING")
+    #     self.application.processEvents()
+    #     if (self.save_data):
+    #         self.sav_file.write('# %s\n'%(tnow.strftime('%Y-%m-%d %H:%M:%S')))
+    #         self.sav_file.write('# Steps/mm: %f\n'%(MM_TO_IDX))
+    #         self.sav_file.write('# Position (step),Current(A),Timestamp,Error Code\n')
+    #         # pos = self.motor_ctrl.get_position()
+    #         self.sav_file.write(self.pa.sample_data(10, self.motor_ctrl.get_position()))
+
+    #         # self.scan_progress.setValue(pos)
+    #         # self.application.processEvents()
+
+    #     else:
+    #         print(self.pa.sample_data(10, self.motor_ctrl.get_position()))
+    #     print(self.start, self.stop, self.step)
+    #     if self.step > 0:
+    #         while self.motor_ctrl.get_position() < self.stop:
+    #             self.scan_status.setText("MOVING")
+    #             self.application.processEvents()
+    #             self.motor_ctrl.move_by(self.step, True)
+    #             pos = self.motor_ctrl.get_position()
+    #             self.scan_status.setText("SAMPLING")
+    #             self.application.processEvents()
+    #             if (self.save_data):
+    #                 self.sav_file.write(self.pa.sample_data(10, pos))
+    #             else:
+    #                 print(self.pa.sample_data(10, pos))
+
+    #             self.scan_progress.setValue(pos)
+    #             self.application.processEvents()
+
+    #     else:
+    #         while self.motor_ctrl.get_position() > self.stop:
+    #             self.scan_status.setText("MOVING")
+    #             self.application.processEvents()
+    #             self.motor_ctrl.move_by(self.step, True)
+    #             self.scan_status.setText("SAMPLING")
+    #             self.application.processEvents()
+    #             if (self.save_data):
+    #                 self.sav_file.write(self.pa.sample_data(10, pos))
+    #             else:
+    #                 print(self.pa.sample_data(10, pos))
+
+    #             self.scan_progress.setValue(pos)
+    #             self.application.processEvents()
+
+    #     if (self.save_data):
+    #         self.sav_file.close()
+    #     self.scan_status.setText("IDLE")
+    #     self.scan_progress.reset()
+    #     self.scan_progress.setMinimum(0)
+    #     self.scan_progress.setMaximum(100)
+    #     self.application.processEvents()
+
+class Scan(QThread):
+    statusUpdate = pyqtSignal(str)
+    progress = pyqtSignal(int)
+    complete = pyqtSignal()
+
+    def __init__(self):
+        super(Scan, self).__init__()
+
+    def __del__(self):
+        self.wait()
+
+    def set_params(self, other: Ui):
+        self.other: Ui = other
+
+    def run(self):
+        print("Save to file? " + str(self.save_to_file))
+
+        self.statusUpdate.emit("PREPARING")
+        sav_file = None
+        if (self.other.save_to_file):
             tnow = dt.datetime.now()
             
-            filename = self.auto_dir + '/' + self.auto_prefix + '_' + tnow.strftime('%Y%m%d%H%M%S') + "_data.csv"
+            filename = self.other.auto_dir + '/' + self.other.auto_prefix + '_' + tnow.strftime('%Y%m%d%H%M%S') + "_data.csv"
             os.makedirs(os.path.dirname(filename), exist_ok=True)
-            self.sav_file = open(filename, 'w')
+            sav_file = open(filename, 'w')
 
-            # print(type(self.sav_file))
-        # Move to start and collect data.
-        self.scan_status.setText("MOVING")
-        self.application.processEvents()
-        self.motor_ctrl.move_to(self.start, True)
+        # self.statusUpdate.emit("MOVING")
         
-        self.scan_status.setText("SAMPLING")
-        self.application.processEvents()
-        if (self.save_data):
-            self.sav_file.write('# %s\n'%(tnow.strftime('%Y-%m-%d %H:%M:%S')))
-            self.sav_file.write('# Steps/mm: %f\n'%(MM_TO_IDX))
-            self.sav_file.write('# Position (step),Current(A),Timestamp,Error Code\n')
-            # pos = self.motor_ctrl.get_position()
-            self.sav_file.write(self.pa.sample_data(10, self.motor_ctrl.get_position()))
+        # self.motor_ctrl.move_to(self.startpos, True)
+        
+        # self.statusUpdate.emit("SAMPLING")
 
-            # self.scan_progress.setValue(pos)
-            # self.application.processEvents()
+        scanrange = np.arange(self.other.startpos, self.other.stoppos + self.other.steppos, self.other.steppos)
+        nidx = len(scanrange)
+        for idx, dpos in enumerate(scanrange):
+            self.other.statusUpdate.emit("MOVING")
+            self.other.motor_ctrl.move_to(dpos, True)
+            pos = self.other.motor_ctrl.get_position()
+            self.other.statusUpdate.emit("SAMPLING")
+            buf = self.other.pa.sample_data(pos, self.other.progress, idx, nidx)
+            if sav_file is not None:
+                if idx == 0:
+                    sav_file.write('# %s\n'%(tnow.strftime('%Y-%m-%d %H:%M:%S')))
+                    sav_file.write('# Steps/mm: %f\n'%(MM_TO_IDX))
+                    sav_file.write('# Position (step),Current(A),Timestamp,Error Code\n')
+                sav_file.write(buf)
 
-        else:
-            print(self.pa.sample_data(10, self.motor_ctrl.get_position()))
-        print(self.start, self.stop, self.step)
-        if self.step > 0:
-            while self.motor_ctrl.get_position() < self.stop:
-                self.scan_status.setText("MOVING")
-                self.application.processEvents()
-                self.motor_ctrl.move_by(self.step, True)
-                pos = self.motor_ctrl.get_position()
-                self.scan_status.setText("SAMPLING")
-                self.application.processEvents()
-                if (self.save_data):
-                    self.sav_file.write(self.pa.sample_data(10, pos))
-                else:
-                    print(self.pa.sample_data(10, pos))
+        if (sav_file is not None):
+            sav_file.close()
 
-                self.scan_progress.setValue(pos)
-                self.application.processEvents()
+        self.complete.emit()
 
-        else:
-            while self.motor_ctrl.get_position() > self.stop:
-                self.scan_status.setText("MOVING")
-                self.application.processEvents()
-                self.motor_ctrl.move_by(self.step, True)
-                self.scan_status.setText("SAMPLING")
-                self.application.processEvents()
-                if (self.save_data):
-                    self.sav_file.write(self.pa.sample_data(10, pos))
-                else:
-                    print(self.pa.sample_data(10, pos))
-
-                self.scan_progress.setValue(pos)
-                self.application.processEvents()
-
-        if (self.save_data):
-            self.sav_file.close()
-        self.scan_status.setText("IDLE")
-        self.scan_progress.reset()
-        self.scan_progress.setMinimum(0)
-        self.scan_progress.setMaximum(100)
-        self.application.processEvents()
-                
 # Main function.
 if __name__ == '__main__':
     import sys

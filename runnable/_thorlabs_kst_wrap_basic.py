@@ -7,6 +7,7 @@ from inspect import getmembers
 import warnings
 from time import sleep
 import math as m
+import threading
 
 def dcos(deg):
     return m.degrees((m.cos(m.radians(32))))
@@ -765,6 +766,7 @@ class Thorlabs: # Wrapper class for TLI methods
             self.serial = str(serialNumber)
             self.open = False
             self._Open(pollingIntervalMs)
+            self.ismoving = False
 
             sleep(1)
             print('Init: Position: %d'%(self.get_position()))
@@ -886,6 +888,15 @@ class Thorlabs: # Wrapper class for TLI methods
             self.dev_mdata = int(mdata[0])
             # print('%s: %d: mtype: %d, mid: %d, mdata: %d'%(__funcname__(), ret, int(mtype[0]), int(mid[0]), int(mdata[0])))
             return (ret, int(mtype[0]), int(mid[0]), int(mdata[0]))
+
+        def _GetMessage(self):
+            mtype = package_ffi.new("WORD[1]")
+            mtype[0] = -1
+            mid = package_ffi.new("WORD[1]")
+            mdata = package_ffi.new("DWORD[1]")
+            ret = TLI_KST.GetNextMessage(self.serial, mtype, mid, mdata)
+            return (ret, int(mtype[0]), int(mid[0]), int(mdata[0]))
+
 
         # Callable API functions.
         # API calls; possible examples.
@@ -1010,10 +1021,13 @@ class Thorlabs: # Wrapper class for TLI methods
                 _direction = MOT_TravelDirection[0]
             retval = TLI_KST.MoveJog(self.serial, _direction)
             return retval
+        @staticmethod
+        def get_message_fcn(obj, mtype, mid):
+            pass
 
         # is_moving
         def is_moving(self):
-            pass
+            return self.ismoving
 
         # wait_move
         # Needs some kind of condition.
