@@ -316,11 +316,11 @@ class Scan(QThread):
         self.other: Ui = other
 
     def run(self):
-        print("Save to file? " + str(self.save_to_file))
+        print("Save to file? " + str(self.other.save_data))
 
         self.statusUpdate.emit("PREPARING")
         sav_file = None
-        if (self.other.save_to_file):
+        if (self.other.save_data):
             tnow = dt.datetime.now()
             
             filename = self.other.auto_dir + '/' + self.other.auto_prefix + '_' + tnow.strftime('%Y%m%d%H%M%S') + "_data.csv"
@@ -334,18 +334,34 @@ class Scan(QThread):
         # self.statusUpdate.emit("SAMPLING")
 
         scanrange = np.arange(self.other.startpos, self.other.stoppos + self.other.steppos, self.other.steppos)
+        self.other.pa.set_samples(3)
         nidx = len(scanrange)
         for idx, dpos in enumerate(scanrange):
-            self.other.statusUpdate.emit("MOVING")
+            self.statusUpdate.emit("MOVING")
             self.other.motor_ctrl.move_to(dpos, True)
             pos = self.other.motor_ctrl.get_position()
-            self.other.statusUpdate.emit("SAMPLING")
-            buf = self.other.pa.sample_data(pos, self.other.progress, idx, nidx)
+            self.statusUpdate.emit("SAMPLING")
+            buf = self.other.pa.sample_data(pos, self.progress, idx, nidx)
             if sav_file is not None:
                 if idx == 0:
                     sav_file.write('# %s\n'%(tnow.strftime('%Y-%m-%d %H:%M:%S')))
                     sav_file.write('# Steps/mm: %f\n'%(MM_TO_IDX))
-                    sav_file.write('# Position (step),Current(A),Timestamp,Error Code\n')
+                    sav_file.write('# Position (step),Mean Current(A),Std Current (A),Error Code\n')
+                # process buf
+                # 1. split by \n
+                lines = buf.split('\n')
+                mes = []
+                errs = ''
+                for line in lines:
+                    words = line.split(',')
+                    try:
+                        errs += '%d;'%(int(float(words[3])))
+                        mes.append(float(words[1][:-1]))
+                    except Exception:
+                        continue
+                mes = np.asarray(mes)
+                buf = '%d,%e,%e,%s\n'%(pos, mes.mean(), mes.std(), errs)
+                
                 sav_file.write(buf)
 
         if (sav_file is not None):

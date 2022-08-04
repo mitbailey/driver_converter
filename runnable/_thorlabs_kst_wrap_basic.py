@@ -766,7 +766,10 @@ class Thorlabs: # Wrapper class for TLI methods
             self.serial = str(serialNumber)
             self.open = False
             self._Open(pollingIntervalMs)
-            self.ismoving = False
+            self.moving = False
+            self.homed = False
+            self.homing = False
+            self.keep_polling = False
 
             sleep(1)
             print('Init: Position: %d'%(self.get_position()))
@@ -889,15 +892,6 @@ class Thorlabs: # Wrapper class for TLI methods
             # print('%s: %d: mtype: %d, mid: %d, mdata: %d'%(__funcname__(), ret, int(mtype[0]), int(mid[0]), int(mdata[0])))
             return (ret, int(mtype[0]), int(mid[0]), int(mdata[0]))
 
-        def _GetMessage(self):
-            mtype = package_ffi.new("WORD[1]")
-            mtype[0] = -1
-            mid = package_ffi.new("WORD[1]")
-            mdata = package_ffi.new("DWORD[1]")
-            ret = TLI_KST.GetNextMessage(self.serial, mtype, mid, mdata)
-            return (ret, int(mtype[0]), int(mid[0]), int(mdata[0]))
-
-
         # Callable API functions.
         # API calls; possible examples.
 
@@ -921,6 +915,19 @@ class Thorlabs: # Wrapper class for TLI methods
                 if _mtype == KST_MessageType[mtype] and _mid == KST_MessageId[mtype][mid]:
                     break
             return ret
+
+        def poll_status(self):
+            TLI_KST.ClearMessageQueue(self.serial)
+            while ret and self.keep_polling:
+                ret, _mtype, _mid, _mdata = self._WaitFor()
+                if _mtype == KST_MessageType['GenericMotor']:
+                    if self.moving and ((_mid == KST_MessageId['GenericMotor']['Moved']) or (_mid == KST_MessageId['GenericMotor']['Stopped'])):
+                        self.moving = False
+                    if self.homing and  (_mid == KST_MessageId['GenericMotor']['Homed']):
+                        self.homing = False
+                        self.homed = True
+                    
+
             
         def state_motor_params(self):
             stepsPerRev = package_ffi.new("double *")
@@ -972,15 +979,16 @@ class Thorlabs: # Wrapper class for TLI methods
         # home
         def home(self):
             retval = TLI_KST.Home(self.serial)
+            self.homing = True
             return retval
 
         # is_homing
         def is_homing(self):
-            pass
+            return self.homing
 
         # is_homed
         def is_homed(self):
-            pass
+            return self.homed
 
         # wait_for_home
         def wait_for_home(self):
@@ -1027,7 +1035,7 @@ class Thorlabs: # Wrapper class for TLI methods
 
         # is_moving
         def is_moving(self):
-            return self.ismoving
+            return self.moving
 
         # wait_move
         # Needs some kind of condition.
