@@ -1,5 +1,7 @@
 # %% Imports
 from __future__ import annotations
+from asyncore import poll
+import sys
 from nicelib import load_lib, NiceLib, Sig, NiceObject, RetHandler, ret_ignore
 from cffi import FFI
 from inspect import getmembers
@@ -9,6 +11,10 @@ import math as m
 import threading
 
 from _thorlabs_kst_wrap_basic import *
+
+def __funcname__():
+    import inspect
+    return inspect.stack()[1][3]
 
 #%%
 ################################################################################ 
@@ -193,7 +199,7 @@ class Thorlabs: # Wrapper class for TLI methods
             return _devs
         
         # Init stores the serial number
-        def __init__(self, serialNumber: int, pollingIntervalMs: int = 100):
+        def __init__(self, serialNumber: int, pollingIntervalMs: int = 100): # should also get the stage here
             """Create an instance of Thorlabs KST101 Stepper Motor Controller
 
             Args:
@@ -204,6 +210,7 @@ class Thorlabs: # Wrapper class for TLI methods
                 RuntimeError: Instance of KST101 exists with this serial number
                 RuntimeError: Serial number not in device list
             """
+            self.poll_thread = None
             if str(serialNumber)[:2] != str(Thorlabs.TYPE_KST101):
                 raise ValueError('Invalid serial %d: KST101 Serial starts with %s'%(serialNumber, str(Thorlabs.TYPE_KST101)))
             elif serialNumber in Thorlabs.KST101.open_devices:
@@ -216,13 +223,14 @@ class Thorlabs: # Wrapper class for TLI methods
             self.moving = False
             self.homed = False
             self.homing = False
-            self.keep_polling = False
+            self.keep_polling = True
+            self.poll_interval = pollingIntervalMs * 0.001
             self.mutex = threading.Lock()
             self.cond = threading.Condition(self.mutex)
-            self.poll_thread = threading.Thread(self.poll_status)
+            self.poll_thread = threading.Thread(target = self.poll_status)
             self.poll_thread.start()
-            retval = self.home(True) # TODO: Remove blocking while homing in INIT
-            if retval:
+            retval = self.home(False) # TODO: Remove blocking while homing in INIT
+            if retval != 0 and retval != 39:
                 raise RuntimeError('Motor %s: Could not home, error %s'%(self.serial, err_codes[retval]))
 
         # SCC Methods
@@ -252,10 +260,15 @@ class Thorlabs: # Wrapper class for TLI methods
             return True
 
         def __del__(self):
-            self.keep_polling = False
-            with self.cond:
-                self.cond.notify_all()
-            self.poll_thread.join()
+            print('Invoked del on motor_ctrl')
+            sys.stdout.flush()
+            # sleep(1)
+            # if self.poll_thread is not None:
+            #     self.keep_polling = False
+            #     self._StopPolling()
+            #     with self.cond:
+            #         self.cond.notify_all()
+            #     self.poll_thread.join()
             if self.open:
                 self._Close()
         
@@ -330,11 +343,22 @@ class Thorlabs: # Wrapper class for TLI methods
             ret = TLI_KST.StopPolling(self.serial)
             return ret
 
-        def _WaitFor(self) -> bool:
+        def _WaitFor(self) -> tuple:
             mtype = package_ffi.new("WORD[1]")
             mid = package_ffi.new("WORD[1]")
             mdata = package_ffi.new("DWORD[1]")
             ret = TLI_KST.WaitForMessage(self.serial, mtype, mid, mdata)
+            self.dev_mtype = int(mtype[0])
+            self.dev_mid = int(mid[0])
+            self.dev_mdata = int(mdata[0])
+            # print('%s: %d: mtype: %d, mid: %d, mdata: %d'%(__funcname__(), ret, int(mtype[0]), int(mid[0]), int(mdata[0])))
+            return (ret, int(mtype[0]), int(mid[0]), int(mdata[0]))
+
+        def _GetNext(self) -> tuple:
+            mtype = package_ffi.new("WORD[1]")
+            mid = package_ffi.new("WORD[1]")
+            mdata = package_ffi.new("DWORD[1]")
+            ret = TLI_KST.GetNextMessage(self.serial, mtype, mid, mdata)
             self.dev_mtype = int(mtype[0])
             self.dev_mid = int(mid[0])
             self.dev_mdata = int(mdata[0])
@@ -367,22 +391,32 @@ class Thorlabs: # Wrapper class for TLI methods
 
         def poll_status(self):
             TLI_KST.ClearMessageQueue(self.serial)
-            while ret and self.keep_polling:
-                ret, _mtype, _mid, _mdata = self._WaitFor()
-                if _mtype == KST_MessageType['GenericMotor']:
-                    if self.moving and ((_mid == KST_MessageId['GenericMotor']['Moved']) or (_mid == KST_MessageId['GenericMotor']['Stopped'])):
-                        self.moving = False
-                        with self.cond:
-                            self.cond.notify()
-                    if self.homing and (_mid == KST_MessageId['GenericMotor']['Moved']):
-                        self.homing = False
-                        with self.cond:
-                            self.cond.notify()
-                    if self.homing and (_mid == KST_MessageId['GenericMotor']['Homed']):
-                        self.homed = True
-                        self.homing = False
-                        with self.cond:
-                            self.cond.notify()
+            while self.keep_polling:
+                # print('Poll thread: waiting')
+                if self.message_queue_size():
+                    ret, _mtype, _mid, _mdata = self._GetNext()
+                    if not ret:
+                        print('WARNING: did not get message in thread')
+                        continue
+                    if _mtype == KST_MessageType['GenericMotor']:
+                        if self.moving and ((_mid == KST_MessageId['GenericMotor']['Moved']) or (_mid == KST_MessageId['GenericMotor']['Stopped'])):
+                            self.moving = False
+                            print('Poll: Stopped moving')
+                            with self.cond:
+                                self.cond.notify()
+                        if self.homing and (_mid == KST_MessageId['GenericMotor']['Moved']):
+                            self.homing = False
+                            print('Poll: Stopped homing')
+                            with self.cond:
+                                self.cond.notify()
+                        if self.homing and (_mid == KST_MessageId['GenericMotor']['Homed']):
+                            print('Poll: Homed')
+                            self.homed = True
+                            self.homing = False
+                            with self.cond:
+                                self.cond.notify()
+                else:
+                    sleep(self.poll_interval) # polling interval
 
         def wait_for_move(self):
             with self.cond:
@@ -444,6 +478,7 @@ class Thorlabs: # Wrapper class for TLI methods
         # home
         def home(self, blocking = False):
             retval = TLI_KST.Home(self.serial)
+            # print('Home fcn: retval %d'%(retval))
             self.homing = True
             if blocking:
                 self.wait_for_home()
@@ -469,6 +504,7 @@ class Thorlabs: # Wrapper class for TLI methods
 
         # move_by
         def move_by(self, difference: int, block: bool):
+            self.moving = True
             retval = TLI_KST.MoveRelative(self.serial, difference)
             if block:
                 self.wait_for_move()
@@ -477,6 +513,7 @@ class Thorlabs: # Wrapper class for TLI methods
 
         # move_to
         def move_to(self, position: int, block: bool):
+            self.moving = True
             retval = TLI_KST.MoveToPosition(self.serial, position)
             if block:
                 self.wait_for_move()

@@ -9,6 +9,7 @@
 # 
 #
 
+from time import sleep
 from PyQt5 import uic
 from PyQt5.Qt import QTextOption
 from PyQt5.QtCore import (pyqtSignal, pyqtSlot, Q_ARG, QAbstractItemModel,
@@ -53,6 +54,13 @@ MM_TO_IDX = 2184560.64
 class Scan(QThread):
     pass
 
+class Dummy:
+    def __init__(self):
+        print('Dummy class created')
+    
+    def __del__(self):
+        print('Dummy class deleted')
+
 class Ui(QMainWindow):
     manual_prefix = 'manual'
     auto_prefix = 'automatic'
@@ -70,6 +78,15 @@ class Ui(QMainWindow):
 
     current_position = -1
 
+    def __del__(self):
+        del self.dummy
+        del self.scan
+        print('Invoked del on Ui class element')
+        sleep(1)
+        print('Invoking delete on motor_ctrl')
+        del self.motor_ctrl
+        del self.pa
+
     def __init__(self, application):
         self.application = application
 
@@ -77,11 +94,15 @@ class Ui(QMainWindow):
         uic.loadUi("mainwindow.ui", self)
         self.setWindowTitle("MMC Early GUI")
 
+        self.dummy = Dummy()
+
         #  Picoammeter init.
-        self.pa = pico.Picoammeter(10)
+        self.pa = pico.Picoammeter(3)
 
         #  KST101 init.
         serials = serials = tlkt.Thorlabs.ListDevicesAny()
+        if len(serials) == 0:
+            raise RuntimeError('No KST101 controller found')
         self.motor_ctrl = tlkt.Thorlabs.KST101(serials[0])
         if (self.motor_ctrl._CheckConnection() == False):
             raise RuntimeError('Connection with motor controller failed.')
@@ -388,4 +409,5 @@ if __name__ == '__main__':
     
     # Wait for the Qt loop to exit before exiting.
     ret = application.exec_() # block until
+    del mainWindow
     sys.exit(ret)
