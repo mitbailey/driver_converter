@@ -25,7 +25,7 @@ from PyQt5.QtWidgets import (QMainWindow, QDoubleSpinBox, QApplication, QComboBo
 from PyQt5.QtCore import QTimer
 from io import TextIOWrapper
 
-import _thorlabs_kst_wrap_basic as tlkt
+import _thorlabs_kst_advanced as tlkt
 import picoammeter as pico
 import math as m
 import os
