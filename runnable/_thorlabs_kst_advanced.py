@@ -260,15 +260,12 @@ class Thorlabs: # Wrapper class for TLI methods
             return True
 
         def __del__(self):
-            print('Invoked del on motor_ctrl')
-            sys.stdout.flush()
-            # sleep(1)
-            # if self.poll_thread is not None:
-            #     self.keep_polling = False
-            #     self._StopPolling()
-            #     with self.cond:
-            #         self.cond.notify_all()
-            #     self.poll_thread.join()
+            if self.poll_thread is not None:
+                self.keep_polling = False
+                self._StopPolling()
+                with self.cond:
+                    self.cond.notify_all()
+                self.poll_thread.join()
             if self.open:
                 self._Close()
         
@@ -533,6 +530,16 @@ class Thorlabs: # Wrapper class for TLI methods
         @staticmethod
         def get_message_fcn(obj, mtype, mid):
             pass
+
+        def stop_polling(self):
+            self._StopPolling()
+            if self.poll_thread is not None:
+                self.keep_polling = False
+                with self.cond:
+                    self.cond.notify_all()    
+                self.poll_thread.join()
+                self.poll_thread = None
+
 
         # is_moving
         def is_moving(self):

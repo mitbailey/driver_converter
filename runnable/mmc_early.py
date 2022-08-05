@@ -73,17 +73,11 @@ class Ui(QMainWindow):
 
     manual_position = 0
 
-    pa = None
-    motor_ctrl = None
-
     current_position = -1
 
     def __del__(self):
-        del self.dummy
         del self.scan
-        print('Invoked del on Ui class element')
-        sleep(1)
-        print('Invoking delete on motor_ctrl')
+        self.motor_ctrl.stop_polling() # NOTE: MUST BE CALLED to remove reference of motor_ctrl inside poll_thread fcn
         del self.motor_ctrl
         del self.pa
 
@@ -94,13 +88,12 @@ class Ui(QMainWindow):
         uic.loadUi("mainwindow.ui", self)
         self.setWindowTitle("MMC Early GUI")
 
-        self.dummy = Dummy()
-
         #  Picoammeter init.
         self.pa = pico.Picoammeter(3)
 
+
         #  KST101 init.
-        serials = serials = tlkt.Thorlabs.ListDevicesAny()
+        serials = tlkt.Thorlabs.ListDevicesAny()
         if len(serials) == 0:
             raise RuntimeError('No KST101 controller found')
         self.motor_ctrl = tlkt.Thorlabs.KST101(serials[0])
@@ -149,6 +142,7 @@ class Ui(QMainWindow):
         self.pos_spin.valueChanged.connect(self.manual_pos_changed)
 
         self.scan = Scan()
+
         self.scan.statusUpdate.connect(self.scan_statusUpdate_slot)
         self.scan.progress.connect(self.scan_progress_slot)
 
