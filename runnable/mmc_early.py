@@ -9,6 +9,7 @@
 # 
 #
 
+from email.charset import QP
 from time import sleep
 from PyQt5 import uic
 from PyQt5.Qt import QTextOption
@@ -33,7 +34,20 @@ import os
 import numpy as np
 import datetime as dt
 
-import asyncio
+import matplotlib
+matplotlib.use('Qt5Agg')
+
+from PyQt5 import QtCore, QtWidgets
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
+from matplotlib.figure import Figure
+
+class MplCanvas(FigureCanvasQTAgg):
+
+    def __init__(self, parent=None, width=5, height=4, dpi=100):
+        fig = Figure(figsize=(width, height), dpi=dpi)
+        self.axes = fig.add_subplot(111)
+        super(MplCanvas, self).__init__(fig)
 
 MM_TO_IDX = 2184560.64
 # NM_TO_MM = 0
@@ -76,7 +90,7 @@ class Ui(QMainWindow):
     current_position = -1
 
     def __del__(self):
-        del self.scan
+        # del self.scan # workaround for cross referencing: delete scan externally
         self.motor_ctrl.stop_polling() # NOTE: MUST BE CALLED to remove reference of motor_ctrl inside poll_thread fcn
         del self.motor_ctrl
         del self.pa
@@ -119,9 +133,52 @@ class Ui(QMainWindow):
         self.currpos_steps_disp = self.findChild(QLabel, "position_steps_value_label")
         self.scan_status = self.findChild(QLabel, "scan_status_value_label")
         self.scan_progress = self.findChild(QProgressBar, "scan_status_progress_bar")
-        self.pos_spin = self.findChild(QDoubleSpinBox, "doubleSpinBox_5")
-        self.move_to_position_button = self.findChild(QPushButton, "pushButton_12")
-        self.collect_data = self.findChild(QPushButton, "pushButton_13")
+        self.pos_spin: QDoubleSpinBox = self.findChild(QDoubleSpinBox, "doubleSpinBox_5")
+        self.move_to_position_button: QPushButton = self.findChild(QPushButton, "pushButton_12")
+        self.collect_data:QPushButton = self.findChild(QPushButton, "pushButton_13")
+        self.plotFrame: QWidget = self.findChild(QWidget, "graphPreview")
+        self.mainPlotFrame: QWidget = self.findChild(QWidget, "mainGraph")
+        self.plotBtnFrame: QWidget = self.findChild(QWidget, 'frame')
+
+        self.xdata: list = [] # collection of xdata
+        self.ydata: list = [] # collection of ydata
+        self.yerr: list = [] # collection of yerr
+
+        self.plotCanvas = MplCanvas(self, width=5, height=4, dpi=100)
+        self.plotCanvas2 = MplCanvas(self, width=5, height=4, dpi=100)
+        # self.plotCanvas.axes.plot([], [])
+        self.scanRunning = False
+        self.clearPlotFcn()
+        toolbar = NavigationToolbar(self.plotCanvas, self)
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(toolbar)
+        layout.addWidget(self.plotCanvas)
+        self.plotFrame.setLayout(layout)
+
+        clearPlotBtn: QPushButton = QPushButton('Clear Plots')
+        clearPlotBtn.clicked.connect(self.clearPlotFcn)
+
+        layout = QtWidgets.QHBoxLayout()
+        layout.addStretch(1)
+        layout.addWidget(clearPlotBtn)
+
+        layout2 = QtWidgets.QVBoxLayout()
+        layout2.addLayout(layout)
+        layout2.addStretch(1)
+        self.plotBtnFrame.setLayout(layout2)
+
+        # second output
+        layout = QtWidgets.QVBoxLayout()
+        toolbar2 = NavigationToolbar(self.plotCanvas2, self)
+        layout.addWidget(toolbar2)
+        layout.addWidget(self.plotCanvas2)
+        layout2 = QtWidgets.QHBoxLayout()
+        layout2.addStretch(1)
+        clearPlotBtn2 = QPushButton('Clear Plots')
+        clearPlotBtn2.clicked.connect(self.clearPlotFcn)
+        layout2.addWidget(clearPlotBtn2)
+        layout.addLayout(layout2)
+        self.mainPlotFrame.setLayout(layout)
 
         self.manual_prefix_box.setText(self.manual_prefix)
         self.auto_prefix_box.setText(self.auto_prefix)
@@ -141,16 +198,55 @@ class Ui(QMainWindow):
         self.step_spin.valueChanged.connect(self.step_changed)
         self.pos_spin.valueChanged.connect(self.manual_pos_changed)
 
-        self.scan = Scan()
+        self.scan = Scan(self)
 
         self.scan.statusUpdate.connect(self.scan_statusUpdate_slot)
         self.scan.progress.connect(self.scan_progress_slot)
+        self.scan.complete.connect(self.scan_complete_slot)
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_position_displays)
         self.timer.start(100)
 
         self.show()
+
+    def clearPlotFcn(self):
+        print('clear called')
+        if not self.scanRunning:
+            self.plotCanvas.axes.cla()
+            self.plotCanvas.axes.set_xlabel('Location (mm)')
+            self.plotCanvas.axes.set_ylabel('Photo Current (pA)')
+            self.plotCanvas.axes.grid()
+            self.plotCanvas.draw()
+            self.plotCanvas2.axes.cla()
+            self.plotCanvas2.axes.set_xlabel('Location (mm)')
+            self.plotCanvas2.axes.set_ylabel('Photo Current (pA)')
+            self.plotCanvas2.axes.grid()
+            self.plotCanvas2.draw()
+            self.xdata = []
+            self.ydata = []
+            self.yerr = []
+        return
+
+    def updatePlot(self):
+        print('Update called')
+        self.plotCanvas.axes.cla()
+        self.plotCanvas.axes.set_xlabel('Location (mm)')
+        self.plotCanvas.axes.set_ylabel('Photo Current (pA)')
+        self.plotCanvas2.axes.cla()
+        self.plotCanvas2.axes.set_xlabel('Location (mm)')
+        self.plotCanvas2.axes.set_ylabel('Photo Current (pA)')
+        for idx in range(len(self.xdata)):
+            if len(self.xdata[idx]) == len(self.ydata[idx]) == len(self.yerr[idx]):
+                self.plotCanvas.axes.errorbar(self.xdata[idx], self.ydata[idx], yerr = self.yerr[idx], label = 'Scan %d'%(idx + 1))
+                self.plotCanvas2.axes.errorbar(self.xdata[idx], self.ydata[idx], yerr = self.yerr[idx], label = 'Scan %d'%(idx + 1))
+        self.plotCanvas.axes.legend()
+        self.plotCanvas2.axes.legend()
+        self.plotCanvas.axes.grid()
+        self.plotCanvas2.axes.grid()
+        self.plotCanvas.draw()
+        self.plotCanvas2.draw()
+        return
 
     def scan_statusUpdate_slot(self, status):
         self.scan_status.setText(status)
@@ -159,6 +255,7 @@ class Ui(QMainWindow):
         self.scan_progress.setValue(curr_percent)
 
     def scan_complete_slot(self):
+        self.scan_button.setText('Begin Scan')
         self.scan_status.setText("IDLE")
         self.scan_progress.reset()
 
@@ -170,8 +267,13 @@ class Ui(QMainWindow):
 
     def scan_button_pressed(self):
         print("Scan button pressed!")
-        self.scan.set_params(self)
-        self.scan.start()
+        if not self.scanRunning:
+            self.scan.set_params(self)
+            self.scan.start()
+            self.scan_button.setText('Stop Scan')
+        else:
+            self.scanRunning = False
+            self.scan_button.setText('Begin Scan')
 
     def manual_collect_button_pressed(self):
         print("Manual collect button pressed!")
@@ -321,8 +423,10 @@ class Scan(QThread):
     progress = pyqtSignal(int)
     complete = pyqtSignal()
 
-    def __init__(self):
+    def __init__(self, parent: QMainWindow):
         super(Scan, self).__init__()
+        self.pClass: QMainWindow = parent
+        print(self.pClass)
 
     def __del__(self):
         self.wait()
@@ -331,6 +435,7 @@ class Scan(QThread):
         self.other: Ui = other
 
     def run(self):
+        print(self.pClass)
         print("Save to file? " + str(self.other.save_data))
 
         self.statusUpdate.emit("PREPARING")
@@ -351,12 +456,40 @@ class Scan(QThread):
         scanrange = np.arange(self.other.startpos, self.other.stoppos + self.other.steppos, self.other.steppos)
         self.other.pa.set_samples(3)
         nidx = len(scanrange)
+        if len(self.pClass.xdata) != len(self.pClass.ydata):
+            self.pClass.xdata = []
+            self.pClass.ydata = []
+            self.pClass.yerr = []
+        pidx = len(self.pClass.xdata)
+        self.pClass.xdata.append([])
+        self.pClass.ydata.append([])
+        self.pClass.yerr.append([])
+        self.pClass.scanRunning = True
         for idx, dpos in enumerate(scanrange):
+            if not self.pClass.scanRunning:
+                break
             self.statusUpdate.emit("MOVING")
             self.other.motor_ctrl.move_to(dpos, True)
             pos = self.other.motor_ctrl.get_position()
             self.statusUpdate.emit("SAMPLING")
             buf = self.other.pa.sample_data(pos, self.progress, idx, nidx)
+            # process buf
+            lines = buf.split('\n') # split at newline
+            mes = [] # measurements
+            errs = '' # err strings
+            for line in lines: # for each 'line' in buffer
+                words = line.split(',') # split at comma
+                try:
+                    errs += '%d;'%(int(float(words[3]))) # add error number to error list
+                    mes.append(float(words[1][:-1])) # add measurements
+                except Exception:
+                    continue
+            mes = np.asarray(mes)
+            self.pClass.xdata[pidx].append(pos / MM_TO_IDX)
+            self.pClass.ydata[pidx].append(mes.mean() * 1e12)
+            self.pClass.yerr[pidx].append(mes.std() * 1e12)
+            # print(self.pClass.xdata[pidx], self.pClass.ydata[pidx])
+            self.pClass.updatePlot()
             if sav_file is not None:
                 if idx == 0:
                     sav_file.write('# %s\n'%(tnow.strftime('%Y-%m-%d %H:%M:%S')))
@@ -364,24 +497,12 @@ class Scan(QThread):
                     sav_file.write('# Position (step),Mean Current(A),Std Current (A),Error Code\n')
                 # process buf
                 # 1. split by \n
-                lines = buf.split('\n')
-                mes = []
-                errs = ''
-                for line in lines:
-                    words = line.split(',')
-                    try:
-                        errs += '%d;'%(int(float(words[3])))
-                        mes.append(float(words[1][:-1]))
-                    except Exception:
-                        continue
-                mes = np.asarray(mes)
                 buf = '%d,%e,%e,%s\n'%(pos, mes.mean(), mes.std(), errs)
-                
                 sav_file.write(buf)
 
         if (sav_file is not None):
             sav_file.close()
-
+        self.pClass.scanRunning = False
         self.complete.emit()
 
 # Main function.
@@ -403,5 +524,6 @@ if __name__ == '__main__':
     
     # Wait for the Qt loop to exit before exiting.
     ret = application.exec_() # block until
+    del mainWindow.scan # delete scan, containing reference to mainWindow()
     del mainWindow
     sys.exit(ret)
