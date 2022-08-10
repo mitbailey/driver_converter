@@ -15,7 +15,7 @@ from PyQt5 import uic
 from PyQt5.Qt import QTextOption
 from PyQt5.QtCore import (pyqtSignal, pyqtSlot, Q_ARG, QAbstractItemModel,
                           QFileInfo, qFuzzyCompare, QMetaObject, QModelIndex, QObject, Qt,
-                          QThread, QTime, QUrl, QSize, QEvent, QCoreApplication)
+                          QThread, QTime, QUrl, QSize, QEvent, QCoreApplication, QFile, QIODevice)
 from PyQt5.QtGui import QColor, qGray, QImage, QPainter, QPalette, QIcon, QKeyEvent, QMouseEvent
 from PyQt5.QtMultimedia import (QAbstractVideoBuffer, QMediaContent,
                                 QMediaMetaData, QMediaPlayer, QMediaPlaylist, QVideoFrame, QVideoProbe)
@@ -68,13 +68,6 @@ MM_TO_IDX = 2184560.64
 class Scan(QThread):
     pass
 
-class Dummy:
-    def __init__(self):
-        print('Dummy class created')
-    
-    def __del__(self):
-        print('Dummy class deleted')
-
 class Ui(QMainWindow):
     manual_prefix = 'manual'
     auto_prefix = 'automatic'
@@ -95,11 +88,11 @@ class Ui(QMainWindow):
         del self.motor_ctrl
         del self.pa
 
-    def __init__(self, application):
+    def __init__(self, application, uiresource = None):
         self.application = application
 
         super(Ui, self).__init__()
-        uic.loadUi("mainwindow.ui", self)
+        uic.loadUi(uiresource, self)
         self.setWindowTitle("MMC Early GUI")
 
         #  Picoammeter init.
@@ -505,13 +498,28 @@ class Scan(QThread):
         self.pClass.scanRunning = False
         self.complete.emit()
 
+import os
+import sys
+
+# Change the current dir to the temporary one created by PyInstaller
+try:
+    os.chdir(sys._MEIPASS)
+    print(sys._MEIPASS)
+except:
+    pass
+
 # Main function.
 if __name__ == '__main__':
-    import sys
     application = QApplication(sys.argv)
 
+
+    ui_file_name = "mainwindow.ui"
+    ui_file = QFile(ui_file_name) # workaround to load UI file with pyinstaller
+    if not ui_file.open(QIODevice.ReadOnly):
+        print(f"Cannot open {ui_file_name}: {ui_file.errorString()}")
+        sys.exit(-1)
     # Initializes the GUI.
-    mainWindow = Ui(application)
+    mainWindow = Ui(application, ui_file)
     
     # Example: Creating a new instrument. Should be done in a UI callback of some sort.
      # new_mono = instruments.Monochromator(241.0536, 32, 1)
