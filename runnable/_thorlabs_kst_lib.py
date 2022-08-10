@@ -18,6 +18,7 @@ build_version = '0.7.1'
 _old_curdir = os.path.abspath(os.curdir)
 if 'C:\\Program Files\\Thorlabs\\Kinesis':
     os.chdir('C:\\Program Files\\Thorlabs\\Kinesis')
+os.environ['PATH'] = os.path.dirname('C:\\Program Files\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.KCube.StepperMotor.dll') + ';' + os.environ['PATH'] # added to avoid OSError on dlopen from exe
 lib = ffi.dlopen('C:\\Program Files\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.KCube.StepperMotor.dll')
 os.chdir(_old_curdir)
 
