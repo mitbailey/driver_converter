@@ -111,6 +111,12 @@ class Ui(QMainWindow):
         # Move to 1mm (0nm)
         # self.motor_ctrl.move_to(1 * MM_TO_IDX, True)
         
+        # change current directory to exe/script dir after finding the ui file
+        if getattr(sys, 'frozen', False):
+            application_path = os.path.dirname(sys.executable)
+        elif __file__:
+            application_path = os.path.dirname(__file__)
+        os.chdir(application_path) # to save files properly
 
         # GUI init.
         self.scan_button = self.findChild(QPushButton, "pushButton_3")
