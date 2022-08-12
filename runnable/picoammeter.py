@@ -148,4 +148,57 @@ if __name__ == '__main__':
 
     sys.exit(0)
 
-    
+
+"""
+SYST:ZCH ON   ' Enable zero check.
+RANG 2e-9     ' Select the 2nA range.
+INIT          ' Trigger reading to be used as zero correction
+SYST:ZCOR:ACQ ' Use last reading taken as zero correct value
+SYST:ZCOR ON  ' Perform zero correction.
+RANG:AUTO ON  ' Enable auto range.
+SYST:ZCH OFF  ' Disable zero check.
+READ?         ' Trigger and return one reading.
+
+
+
+Ranges: 2nA 20nA 200nA     2uA 20uA 200uA     2mA 20mA, with 5% overrange. OVERFLOW on overflow.
+
+Filters:
+MED <ON/OFF> -> median filter enable/disable
+MED:RANK <N> -> median filter rank 1 to 5
+
+AVER <ON/OFF> -> average filter
+AVER:TCON <name> -> select filter control MOVing or REPeat
+AVER:COUN <n> -> filter count: 2 to 100
+
+
+Signal commands:
+CONF[:<function>] -> places model 6485/6487 in a oneshot measurement mode. <function> = CURR[:DC]
+CONF? -> queries the selected function. Returns 'CURR'
+FETC? -> Requests the latest readings
+READ? -> Performs an  INIT and a :FETC? (equivalent to INIT:FETC?)
+MEAS[:<function>]? -> Performs a CONF:<function> and a :READ? (equivalent to CONF:CURR[:DC]:FETC?)
+
+CAL -> Instrument calibration
+STAT -> Instrument status
+TRIG -> Instrument triggering
+TRAC -> Buffer operation and data
+SYST -> Zero check, correct, line freq, error message
+SENS -> Current measurements and associated modes
+FORM -> format of returned remote data
+
+
+SCPI command words are not case sensitive, can be sent in long or short form. Multiple command messages can be sent at once as long as they are separated by semicolons (;)
+The query command requests the presently programmed status. It is identified by the question mark (?) at the end of the fundamental form of the command. Most commands have
+a query form.
+
+Each program message must be terminated with an LF (\n), EOI (end of identify), or an LF + EOI. Each response is terminated with an LF and EOI.
+
+Parameter types:
+<b> -> Boolean, 0 or OFF, 1 or ON
+<name> -> parameter name from listed group
+<NRf> -> Numeric representation, 8, 23.6, 2.3e6 etc
+<NDN> -> non-decimal numeric. A unique header identifies the format: #B for binary, #H for hex and #Q for octal
+<n> -> NUmeric value - can consist of an NRf number or one of the following name parameters: DEFault, MINimum, or MAXimum. When the DEFault parameter is used, the instrument
+is programmed to the *RST default value. When the MIN parameter is used, the instrument is programmed to the lowest allowable value, etc.
+"""
