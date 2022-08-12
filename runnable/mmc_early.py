@@ -422,8 +422,8 @@ class Scan(QThread):
 
     def __init__(self, parent: QMainWindow):
         super(Scan, self).__init__()
-        self.pClass: QMainWindow = parent
-        print(self.pClass)
+        self.other: QMainWindow = parent
+        print(self.other)
 
     def __del__(self):
         self.wait()
@@ -432,7 +432,7 @@ class Scan(QThread):
         self.other: Ui = other
 
     def run(self):
-        print(self.pClass)
+        print(self.other)
         print("Save to file? " + str(self.other.save_data))
 
         self.statusUpdate.emit("PREPARING")
@@ -453,15 +453,15 @@ class Scan(QThread):
         scanrange = np.arange(self.other.startpos, self.other.stoppos + self.other.steppos, self.other.steppos)
         # self.other.pa.set_samples(3)
         nidx = len(scanrange)
-        if len(self.pClass.xdata) != len(self.pClass.ydata):
-            self.pClass.xdata = []
-            self.pClass.ydata = []
-        pidx = len(self.pClass.xdata)
-        self.pClass.xdata.append([])
-        self.pClass.ydata.append([])
-        self.pClass.scanRunning = True
+        if len(self.other.xdata) != len(self.other.ydata):
+            self.other.xdata = []
+            self.other.ydata = []
+        pidx = len(self.other.xdata)
+        self.other.xdata.append([])
+        self.other.ydata.append([])
+        self.other.scanRunning = True
         for idx, dpos in enumerate(scanrange):
-            if not self.pClass.scanRunning:
+            if not self.other.scanRunning:
                 break
             self.statusUpdate.emit("MOVING")
             self.other.motor_ctrl.move_to(dpos, True)
@@ -478,10 +478,10 @@ class Scan(QThread):
                 err = int(float(words[2])) # skip timestamp
             except Exception:
                 continue
-            self.pClass.xdata[pidx].append(pos / MM_TO_IDX)
-            self.pClass.ydata[pidx].append(mes * 1e12)
-            # print(self.pClass.xdata[pidx], self.pClass.ydata[pidx])
-            self.pClass.updatePlot()
+            self.other.xdata[pidx].append(pos / MM_TO_IDX)
+            self.other.ydata[pidx].append(mes * 1e12)
+            # print(self.other.xdata[pidx], self.other.ydata[pidx])
+            self.other.updatePlot()
             if sav_file is not None:
                 if idx == 0:
                     sav_file.write('# %s\n'%(tnow.strftime('%Y-%m-%d %H:%M:%S')))
@@ -494,7 +494,7 @@ class Scan(QThread):
 
         if (sav_file is not None):
             sav_file.close()
-        self.pClass.scanRunning = False
+        self.other.scanRunning = False
         self.complete.emit()
 
 import os
