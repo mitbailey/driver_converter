@@ -141,7 +141,6 @@ class Ui(QMainWindow):
 
         self.xdata: list = [] # collection of xdata
         self.ydata: list = [] # collection of ydata
-        self.yerr: list = [] # collection of yerr
 
         self.plotCanvas = MplCanvas(self, width=5, height=4, dpi=100)
         self.plotCanvas2 = MplCanvas(self, width=5, height=4, dpi=100)
@@ -224,7 +223,6 @@ class Ui(QMainWindow):
             self.plotCanvas2.draw()
             self.xdata = []
             self.ydata = []
-            self.yerr = []
         return
 
     def updatePlot(self):
@@ -236,9 +234,9 @@ class Ui(QMainWindow):
         self.plotCanvas2.axes.set_xlabel('Location (mm)')
         self.plotCanvas2.axes.set_ylabel('Photo Current (pA)')
         for idx in range(len(self.xdata)):
-            if len(self.xdata[idx]) == len(self.ydata[idx]) == len(self.yerr[idx]):
-                self.plotCanvas.axes.errorbar(self.xdata[idx], self.ydata[idx], yerr = self.yerr[idx], label = 'Scan %d'%(idx + 1))
-                self.plotCanvas2.axes.errorbar(self.xdata[idx], self.ydata[idx], yerr = self.yerr[idx], label = 'Scan %d'%(idx + 1))
+            if len(self.xdata[idx]) == len(self.ydata[idx]):
+                self.plotCanvas.axes.plot(self.xdata[idx], self.ydata[idx], label = 'Scan %d'%(idx + 1))
+                self.plotCanvas2.axes.plot(self.xdata[idx], self.ydata[idx], label = 'Scan %d'%(idx + 1))
         self.plotCanvas.axes.legend()
         self.plotCanvas2.axes.legend()
         self.plotCanvas.axes.grid()
@@ -336,7 +334,7 @@ class Ui(QMainWindow):
         self.sav_file.write('# Position (step),Current(A),Timestamp,Error Code\n')
         pos = self.motor_ctrl.get_position()
         self.current_position = pos
-        self.sav_file.write(self.pa.sample_data(10, pos))
+        self.sav_file.write(self.pa.sample_data())
 
         self.sav_file.close()
 
@@ -453,16 +451,14 @@ class Scan(QThread):
         # self.statusUpdate.emit("SAMPLING")
 
         scanrange = np.arange(self.other.startpos, self.other.stoppos + self.other.steppos, self.other.steppos)
-        self.other.pa.set_samples(3)
+        # self.other.pa.set_samples(3)
         nidx = len(scanrange)
         if len(self.pClass.xdata) != len(self.pClass.ydata):
             self.pClass.xdata = []
             self.pClass.ydata = []
-            self.pClass.yerr = []
         pidx = len(self.pClass.xdata)
         self.pClass.xdata.append([])
         self.pClass.ydata.append([])
-        self.pClass.yerr.append([])
         self.pClass.scanRunning = True
         for idx, dpos in enumerate(scanrange):
             if not self.pClass.scanRunning:
@@ -471,32 +467,29 @@ class Scan(QThread):
             self.other.motor_ctrl.move_to(dpos, True)
             pos = self.other.motor_ctrl.get_position()
             self.statusUpdate.emit("SAMPLING")
-            buf = self.other.pa.sample_data(pos, self.progress, idx, nidx)
+            buf = self.other.pa.sample_data()
+            self.progress.emit(round(idx * 100 / scanrange))
             # process buf
-            lines = buf.split('\n') # split at newline
-            mes = [] # measurements
-            errs = '' # err strings
-            for line in lines: # for each 'line' in buffer
-                words = line.split(',') # split at comma
-                try:
-                    errs += '%d;'%(int(float(words[3]))) # add error number to error list
-                    mes.append(float(words[1][:-1])) # add measurements
-                except Exception:
-                    continue
-            mes = np.asarray(mes)
+            words = buf.split(',') # split at comma
+            if len(words) != 3:
+                continue
+            try:
+                mes = float(words[0][:-1]) # skip the A (unit suffix)
+                err = int(float(words[2])) # skip timestamp
+            except Exception:
+                continue
             self.pClass.xdata[pidx].append(pos / MM_TO_IDX)
-            self.pClass.ydata[pidx].append(mes.mean() * 1e12)
-            self.pClass.yerr[pidx].append(mes.std() * 1e12)
+            self.pClass.ydata[pidx].append(mes * 1e12)
             # print(self.pClass.xdata[pidx], self.pClass.ydata[pidx])
             self.pClass.updatePlot()
             if sav_file is not None:
                 if idx == 0:
                     sav_file.write('# %s\n'%(tnow.strftime('%Y-%m-%d %H:%M:%S')))
                     sav_file.write('# Steps/mm: %f\n'%(MM_TO_IDX))
-                    sav_file.write('# Position (step),Mean Current(A),Std Current (A),Error Code\n')
+                    sav_file.write('# Position (step),Mean Current(A),Status/Error Code\n')
                 # process buf
                 # 1. split by \n
-                buf = '%d,%e,%e,%s\n'%(pos, mes.mean(), mes.std(), errs)
+                buf = '%d,%e,%d\n'%(pos, mes, err)
                 sav_file.write(buf)
 
         if (sav_file is not None):
