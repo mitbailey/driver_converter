@@ -468,9 +468,11 @@ class Scan(QThread):
             pos = self.other.motor_ctrl.get_position()
             self.statusUpdate.emit("SAMPLING")
             buf = self.other.pa.sample_data()
-            self.progress.emit(round(idx * 100 / scanrange))
+            print(buf)
+            self.progress.emit(round((idx + 1) * 100 / nidx))
             # process buf
             words = buf.split(',') # split at comma
+            # print(words)
             if len(words) != 3:
                 continue
             try:
@@ -478,8 +480,9 @@ class Scan(QThread):
                 err = int(float(words[2])) # skip timestamp
             except Exception:
                 continue
+            # print(mes, err)
             self.other.xdata[pidx].append(pos / MM_TO_IDX)
-            self.other.ydata[pidx].append(mes * 1e12)
+            self.other.ydata[pidx].append(-mes * 1e12)
             # print(self.other.xdata[pidx], self.other.ydata[pidx])
             self.other.updatePlot()
             if sav_file is not None:
@@ -489,7 +492,7 @@ class Scan(QThread):
                     sav_file.write('# Position (step),Mean Current(A),Status/Error Code\n')
                 # process buf
                 # 1. split by \n
-                buf = '%d,%e,%d\n'%(pos, mes, err)
+                buf = '%d,%e,%d\n'%(pos, -mes, err)
                 sav_file.write(buf)
 
         if (sav_file is not None):

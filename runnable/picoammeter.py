@@ -114,7 +114,9 @@ class Picoammeter:
             if len(buf):
                 break
             retry -= 1
-        print(buf)
+        if not retry and len(buf) == 0:
+            return out
+        out = buf
         spbuf = buf.split(',')
         try:
             if int(float(spbuf[2])) != 2:
