@@ -44,6 +44,7 @@ class Picoammeter:
         self.port = -1
         for port in serial_ports():
             s = serial.Serial(port, 9600, timeout=1)
+            print('Beginning search for Keithley Model 6485...')
             print('Trying port %s.'%(port))
             s.write(b'*RST\r')
             sleep(0.5)
@@ -57,7 +58,7 @@ class Picoammeter:
                 self.port = port
                 self.s = s
             else:
-                print("Keithley Model 6485 not found.")
+                # print("Keithley Model 6485 not found.")
                 s.close()
 
         if self.found == False:
@@ -128,6 +129,76 @@ class Picoammeter:
     def __del__(self):
         if self.s is not None:
             self.s.close()
+
+class Picodummy:
+    def __init__(self, samples: int):
+        if samples < 2:
+            samples = 2
+        if samples > 20:
+            samples = 20
+        self.samples = samples
+        self.s = None
+        self.found = False
+        self.port = -1
+        # for port in serial_ports():
+        #     s = serial.Serial(port, 9600, timeout=1)
+        #     print('Beginning search for Keithley Model 6485...')
+        #     print('Trying port %s.'%(port))
+        #     s.write(b'*RST\r')
+        #     sleep(0.5)
+        #     s.write(b'*IDN?\r')
+        #     buf = s.read(128).decode('utf-8').rstrip()
+        #     print(buf)
+
+        #     if 'KEITHLEY INSTRUMENTS INC.,MODEL 6485' in buf:
+        #         print("Keithley Model 6485 found.")
+        #         self.found = True
+        #         self.port = port
+        #         self.s = s
+        #     else:
+        #         # print("Keithley Model 6485 not found.")
+        #         s.close()
+        print("Picodummy; no port search necessary.")
+
+        # if self.found == False:
+        #     raise RuntimeError('Could not find Keithley Model 6485!')
+        print('Using port %s.'%(self.port))
+
+        print('Init complete')
+
+
+    def set_samples(self, samples: int):
+        if samples < 2:
+            samples = 2
+        if samples > 20:
+            samples = 20
+        self.samples = samples
+    def sample_data(self):
+        import numpy as np
+        out = np.random.random(2)
+        return '%eA,%e,0'%(out[0], out[1])
+        # self.s.write(b'READ?\r')
+        # retry = 10
+        # while retry:
+        #     buf = self.s.read(128).decode('utf-8').rstrip()
+        #     if len(buf):
+        #         break
+        #     retry -= 1
+        # if not retry and len(buf) == 0:
+        #     return out
+        # out = buf
+        # spbuf = buf.split(',')
+        # try:
+        #     if int(float(spbuf[2])) != 2:
+        #         print("ERROR #%d"%(int(float(spbuf[2]))))
+        # except Exception:
+        #     print('Error: %s invalid output'%(buf))
+        return out
+
+    def __del__(self):
+        pass
+        # if self.s is not None:
+            # self.s.close()
 
 # test code
 

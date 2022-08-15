@@ -2,6 +2,7 @@
 from __future__ import annotations
 from asyncore import poll
 import sys
+import weakref
 from nicelib import load_lib, NiceLib, Sig, NiceObject, RetHandler, ret_ignore
 from cffi import FFI
 from inspect import getmembers
@@ -227,7 +228,7 @@ class Thorlabs: # Wrapper class for TLI methods
             self.poll_interval = pollingIntervalMs * 0.001
             self.mutex = threading.Lock()
             self.cond = threading.Condition(self.mutex)
-            self.poll_thread = threading.Thread(target = self.poll_status)
+            self.poll_thread = threading.Thread(target = Thorlabs.KST101.poll_status, args=[weakref.proxy(self)])
             self.poll_thread.start()
             retval = self.home(False) # TODO: Remove blocking while homing in INIT
             if retval != 0 and retval != 39:
@@ -252,7 +253,7 @@ class Thorlabs: # Wrapper class for TLI methods
             Thorlabs.KST101.open_devices.append(int(self.serial))
             self.open = True
             # Run self connection test.
-            ret = self._CheckConnection
+            ret = self._CheckConnection(self.serial)
             if ret == False:
                 self._Close()
                 raise RuntimeError('Device opened but connection test failed.')
@@ -386,34 +387,35 @@ class Thorlabs: # Wrapper class for TLI methods
                     break
             return ret
 
-        def poll_status(self):
-            TLI_KST.ClearMessageQueue(self.serial)
-            while self.keep_polling:
+        @staticmethod
+        def poll_status(arg):
+            TLI_KST.ClearMessageQueue(arg.serial)
+            while arg.keep_polling:
                 # print('Poll thread: waiting')
-                if self.message_queue_size():
-                    ret, _mtype, _mid, _mdata = self._GetNext()
+                if arg.message_queue_size():
+                    ret, _mtype, _mid, _mdata = arg._GetNext()
                     if not ret:
                         print('WARNING: did not get message in thread')
                         continue
                     if _mtype == KST_MessageType['GenericMotor']:
-                        if self.moving and ((_mid == KST_MessageId['GenericMotor']['Moved']) or (_mid == KST_MessageId['GenericMotor']['Stopped'])):
-                            self.moving = False
+                        if arg.moving and ((_mid == KST_MessageId['GenericMotor']['Moved']) or (_mid == KST_MessageId['GenericMotor']['Stopped'])):
+                            arg.moving = False
                             print('Poll: Stopped moving')
-                            with self.cond:
-                                self.cond.notify()
-                        if self.homing and (_mid == KST_MessageId['GenericMotor']['Moved']):
-                            self.homing = False
+                            with arg.cond:
+                                arg.cond.notify()
+                        if arg.homing and (_mid == KST_MessageId['GenericMotor']['Moved']):
+                            arg.homing = False
                             print('Poll: Stopped homing')
-                            with self.cond:
-                                self.cond.notify()
-                        if self.homing and (_mid == KST_MessageId['GenericMotor']['Homed']):
+                            with arg.cond:
+                                arg.cond.notify()
+                        if arg.homing and (_mid == KST_MessageId['GenericMotor']['Homed']):
                             print('Poll: Homed')
-                            self.homed = True
-                            self.homing = False
-                            with self.cond:
-                                self.cond.notify()
+                            arg.homed = True
+                            arg.homing = False
+                            with arg.cond:
+                                arg.cond.notify()
                 else:
-                    sleep(self.poll_interval) # polling interval
+                    sleep(arg.poll_interval) # polling interval
 
         def wait_for_move(self):
             with self.cond:
@@ -557,6 +559,403 @@ class Thorlabs: # Wrapper class for TLI methods
 
         def emergency_stop(self):
             retval = TLI_KST.StopImmediate(self.serial)
+            return retval
+
+        # wait_for_stop
+        def wait_for_stop(self):
+            pass
+
+        # get_velocity_parameters
+        def get_velocity_parameters(self):
+            pass
+
+        # setup_velocity
+        def setup_velocity(self):
+            pass
+
+        # get_jog_parameters
+        def get_jog_parameters(self):
+            pass
+
+        # setup_jog
+        def setup_jog(self):
+            pass
+
+        # get_homing_parameters
+        def get_homing_parameters(self):
+            pass
+
+        # setup_homing
+        def setup_homing(self):
+            pass
+
+        # get_gen_move_parameters
+        def get_gen_move_parameters(self):
+            pass
+
+        # setup_gen_move
+        def setup_gen_move(self):
+            pass
+
+        # get_limit_switch_parameters
+        def get_limit_switch_parameters(self):
+            pass
+
+        # setup_limit_switch
+        def setup_limit_switch(self):
+            pass
+
+        # get_kcube_trigio_parameters
+        def get_kcube_trigio_parameters(self):
+            pass
+
+        # setup_kcube_trigio
+        def setup_kcube_trigio(self):
+            pass
+
+        # get_kcube_trigpos_parameters
+        def get_kcube_trigpos_parameters(self):
+            pass
+
+        # setup_kcube_trigpos
+        def setup_kcube_trigpos(self):
+            pass
+
+    class KSTDummy: # Subclass for KST101 devices
+        # API calls; possible examples.
+        """
+            get_status_n
+            get_status
+            wait_for_status
+
+            home
+            is_homing
+            is_homed
+            wait_for_home
+
+            get_position
+            set_position_reference
+            move_by
+            move_to
+            jog
+            is_moving
+            wait_move
+            stop
+            wait_for_stop
+
+            get_velocity_parameters
+            setup_velocity
+            get_jog_parameters
+            setup_jog
+            get_homing_parameters
+            setup_homing
+            get_gen_move_parameters
+            setup_gen_move
+            get_limit_switch_parameters
+            setup_limit_switch
+            get_kcube_trigio_parameters
+            setup_kcube_trigio
+            get_kcube_trigpos_parameters
+            setup_kcube_trigpos
+        """
+        # TLI List method
+        open_devices = [] # List of opened devices
+        @staticmethod
+        def _ListDevices() -> list:
+            """List all available KST101 devices (including opened devices).
+
+            Returns:
+                list: Serial numbers of available KST101 devices.
+
+            NOTE: Backport listing opened devices feature to Thorlabs.ListDevicesAny() and Thorlabs.ListDevices()
+            """
+            return [2600001]
+        
+        # Init stores the serial number
+        def __init__(self, serialNumber: int, pollingIntervalMs: int = 100): # should also get the stage here
+            """Create an instance of Thorlabs KST101 Stepper Motor Controller
+
+            Args:
+                serialNumber (int): Serial number of the KST101 Controller
+
+            Raises:
+                ValueError: Invalid serial number
+                RuntimeError: Instance of KST101 exists with this serial number
+                RuntimeError: Serial number not in device list
+            """
+            self.poll_thread = None
+            if str(serialNumber)[:2] != str(Thorlabs.TYPE_KST101):
+                raise ValueError('Invalid serial %d: KST101 Serial starts with %s'%(serialNumber, str(Thorlabs.TYPE_KST101)))
+            elif serialNumber in Thorlabs.KSTDummy.open_devices:
+                raise RuntimeError('Serial %d already in use.'%(serialNumber))
+            elif serialNumber not in Thorlabs.KSTDummy._ListDevices():
+                raise RuntimeError('Serial %d not in device list.'%(serialNumber))
+            self.serial = str(serialNumber)
+            self.position = 123
+            self.open = False
+            self._Open(pollingIntervalMs)
+            self.moving = False
+            self.homed = False
+            self.homing = False
+            self.keep_polling = True
+            self.poll_interval = pollingIntervalMs * 0.001
+            self.mutex = threading.Lock()
+            self.cond = threading.Condition(self.mutex)
+            self.poll_thread = threading.Thread(target = Thorlabs.KSTDummy.poll_status, args=[weakref.proxy(self)])
+            self.poll_thread.start()
+            retval = self.home(False) # TODO: Remove blocking while homing in INIT
+            if retval != 0 and retval != 39:
+                raise RuntimeError('Motor %s: Could not home, error %s'%(self.serial, err_codes[retval]))
+
+        # SCC Methods
+        def _Open(self, pollingIntervalMs: int = 100) -> bool:
+            """Open connection to the KST101 Controller.
+
+            Raises:
+                RuntimeError: Connection to device is already open.
+                RuntimeError: Error opening connection to device.
+
+            Returns:
+                bool: _description_
+            """
+            if int(self.serial) in Thorlabs.KSTDummy.open_devices:
+                raise RuntimeError('Device %d is already open.'%(int(self.serial)))
+            Thorlabs.KSTDummy.open_devices.append(int(self.serial))
+            self.open = True
+            # Run self connection test.
+            return True
+
+        def __del__(self):
+            if self.poll_thread is not None:
+                self.keep_polling = False
+                self._StopPolling()
+                with self.cond:
+                    self.cond.notify_all()
+                self.poll_thread.join()
+            if self.open:
+                self._Close()
+        
+        def _Close(self) -> None:
+            """Close connection to the KST101 Controller.
+            """
+            Thorlabs.KSTDummy.open_devices.remove(int(self.serial))
+            self.serial = None
+            self.open = False
+
+        def _CheckConnection(self) -> bool:
+            """Check connection to the device.
+
+            Returns:
+                bool: True if the device is connected.
+            """
+            return True
+        
+        def _Identify(self) -> None:
+            """Identify the device by blinking the display backlight.
+
+            Raises:
+                RuntimeWarning: Connection to device is not open.
+
+            Returns:
+                None
+            """
+            return
+        
+        # Should this be automatically performed on open?
+        def _GetHardwareInfo(self) -> dict:
+            """Get the hardware information for this device.
+
+            Raises:
+                RuntimeError: GetHardwareInfoBlock call fails
+            
+            Returns:
+                dict: Information in struct TLI_HardwareInformation
+            """
+
+            retdict = {}
+            retdict['serialNumber'] = 2600001
+            retdict['modelNumber'] = 'KSTDum'
+            retdict['type'] = None
+            retdict['firmwareVersion'] = None
+            retdict['notes'] = None
+            retdict['deviceDependantData'] = None
+            retdict['hardwareVersion'] = None
+            retdict['modificationState'] = None
+            retdict['numChannels'] = None
+
+            # ffi = FFI()
+            # ffi.cdef("""
+            # struct TLI_HardwareInformation
+            # {
+            #     DWORD serialNumber;
+            #     char modelNumber[8];
+            #     WORD type;
+            #     DWORD firmwareVersion;
+            #     char notes[48];
+            #     unsigned char deviceDependantData[12];
+            #     WORD hardwareVersion;
+            #     WORD modificationState;
+            #     short numChannels;};
+            # """)
+            
+            return retdict
+
+        def _StartPolling(self, rate_ms: int):
+            return True
+
+        def _StopPolling(self):
+            return True
+
+        def _WaitFor(self) -> tuple:
+            return (0,0,0,0)
+
+        def _GetNext(self) -> tuple:
+            return (0,0,0,0)
+
+        # Callable API functions.
+        # API calls; possible examples.
+
+        def set_stage(self, stype: str):
+            return True
+
+        def wait_for(self, mtype: str, mid: str) -> bool:
+            return True
+
+        @staticmethod
+        def poll_status(arg):
+            while arg.keep_polling:
+                # print('Poll thread: waiting')
+                if arg.moving:
+                    sleep(0.5)
+                    arg.moving = False
+                    with arg.cond:
+                        arg.cond.notify()
+                elif arg.homing:
+                    sleep(0.5)
+                    arg.homing = False
+                    arg.homed = True
+                    with arg.cond:
+                        arg.cond.notify()
+                else:
+                    sleep(arg.poll_interval) # polling interval
+
+        def wait_for_move(self):
+            with self.cond:
+                while self.moving:
+                    self.cond.wait()
+
+        def wait_for_home(self):
+            with self.cond:
+                while self.homing:
+                    self.cond.wait()
+        
+        def state_motor_params(self):
+            return
+
+        def state_motor_velocity_limits(self):
+            return
+
+        def state_motor_travel_limits(self):
+            return
+
+        def state_motor_travel_mode(self):
+            return
+
+        def state_stage_axis_max_pos(self):
+            return
+
+        def state_stage_axis_min_pos(self):
+            return
+
+        def message_queue_size(self) -> int:
+            return 0
+
+        # get_status_n
+        # get_status
+        def get_status(self):
+            pass
+
+        # wait_for_status
+        def wait_for_status(self):
+            pass
+
+        # home
+        def home(self, blocking = False):
+            # print('Home fcn: retval %d'%(retval))
+            self.position = 0
+            self.homing = True
+            if blocking:
+                self.wait_for_home()
+            return self.homed
+
+        # is_homing
+        def is_homing(self):
+            return self.homing
+
+        # is_homed
+        def is_homed(self):
+            return self.homed
+
+        # get_position
+        def get_position(self):
+            # TLI_KST.RequestPosition(self.serial)
+            retval = self.position
+            return retval
+
+        # set_position_reference
+        def set_position_reference():
+            pass
+
+        # move_by
+        def move_by(self, difference: int, block: bool):
+            self.moving = True
+            self.position += difference
+            if block:
+                self.wait_for_move()
+                # self.wait_for('GenericMotor', 'Moved')
+            return True
+
+        # move_to
+        def move_to(self, position: int, block: bool):
+            self.moving = True
+            self.position = position
+            if block:
+                self.wait_for_move()
+            return True
+
+        # jog - probably slew?
+        def jog(self, stepsize, direction):
+            return 0
+        @staticmethod
+        def get_message_fcn(obj, mtype, mid):
+            pass
+
+        def stop_polling(self):
+            self._StopPolling()
+            if self.poll_thread is not None:
+                self.keep_polling = False
+                with self.cond:
+                    self.cond.notify_all()    
+                self.poll_thread.join()
+                self.poll_thread = None
+
+
+        # is_moving
+        def is_moving(self):
+            return self.moving
+
+        # wait_move
+        # Needs some kind of condition.
+        def wait_move(self):
+            pass
+
+        # stop
+        def stop(self):
+            return 0
+            return retval
+
+        def emergency_stop(self):
+            return 0
             return retval
 
         # wait_for_stop

@@ -9,8 +9,26 @@
 # 
 #
 
+# %% Set up paths
+
+import os
+import sys
+
+try:
+    exeDir = sys._MEIPASS
+except Exception:
+    exeDir = os.getcwd()
+
+if getattr(sys, 'frozen', False):
+    appDir = os.path.dirname(sys.executable)
+elif __file__:
+    appDir = os.path.dirname(__file__)
+
+# %% More Imports
+
 from email.charset import QP
 from time import sleep
+import weakref
 from PyQt5 import uic
 from PyQt5.Qt import QTextOption
 from PyQt5.QtCore import (pyqtSignal, pyqtSlot, Q_ARG, QAbstractItemModel,
@@ -43,12 +61,14 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationTool
 from matplotlib.figure import Figure
 
 class MplCanvas(FigureCanvasQTAgg):
-
     def __init__(self, parent=None, width=5, height=4, dpi=100):
-        fig = Figure(figsize=(width, height), dpi=dpi)
+        fig = Figure(figsize=(width, height), dpi=dpi, tight_layout = True)
         self.axes = fig.add_subplot(111)
+        self.axes.set_xlabel('Position (nm)')
+        self.axes.set_ylabel('Current (pA)')
         super(MplCanvas, self).__init__(fig)
 
+# TODO: Change this to a per-device variable.
 MM_TO_IDX = 2184560.64
 # NM_TO_MM = 0
 
@@ -84,66 +104,96 @@ class Ui(QMainWindow):
 
     def __del__(self):
         # del self.scan # workaround for cross referencing: delete scan externally
-        self.motor_ctrl.stop_polling() # NOTE: MUST BE CALLED to remove reference of motor_ctrl inside poll_thread fcn
         del self.motor_ctrl
         del self.pa
 
     def __init__(self, application, uiresource = None):
+
+        self.machine_conf_win: QDialog = None
+        self.grating_density_in: QDoubleSpinBox = None
+        self.diff_order_in: QDoubleSpinBox = None
+        self.zero_ofst_in: QDoubleSpinBox = None
+        self.arm_length_in: QDoubleSpinBox = None
+        self.incidence_ang_in: QDoubleSpinBox = None
+        self.machine_conf_btn: QPushButton = None
+
+        self.grating_density = 833.333 # grating density
+        self.diff_order = 1
+        self.zero_ofst = 0.34 # mm
+        self.arm_length = 550.0 # mm
+        self.incidence_ang = 32 # deg
+        self.conversion_slope = 2 * self.grating_density * np.cos(np.pi * self.incidence_ang / 180) / self.arm_length * MM_TO_IDX / self.diff_order # verify eqn
+
         self.application = application
 
         super(Ui, self).__init__()
         uic.loadUi(uiresource, self)
         self.setWindowTitle("MMC Early GUI")
 
-        #  Picoammeter init.
-        self.pa = pico.Picoammeter(3)
+        self.is_conv_set = False # Use this flag to set conversion
 
+        #  Picoammeter init.
+        try:
+            self.pa = pico.Picoammeter(3)
+        except:
+            self.pa = pico.Picodummy(3)
 
         #  KST101 init.
-        serials = tlkt.Thorlabs.ListDevicesAny()
-        if len(serials) == 0:
-            raise RuntimeError('No KST101 controller found')
-        self.motor_ctrl = tlkt.Thorlabs.KST101(serials[0])
-        if (self.motor_ctrl._CheckConnection() == False):
-            raise RuntimeError('Connection with motor controller failed.')
-        self.motor_ctrl.set_stage('ZST25')
+        try:
+            serials = tlkt.Thorlabs.ListDevicesAny()
+            if len(serials) == 0:
+                raise RuntimeError('No KST101 controller found')
+            self.motor_ctrl = tlkt.Thorlabs.KST101(serials[0])
+            if (self.motor_ctrl._CheckConnection() == False):
+                raise RuntimeError('Connection with motor controller failed.')
+            self.motor_ctrl.set_stage('ZST25')
+        except:
+            serials = tlkt.Thorlabs.KSTDummy._ListDevices()
+            self.motor_ctrl = tlkt.Thorlabs.KSTDummy(serials[0])
 
         # Move to 1mm (0nm)
         # self.motor_ctrl.move_to(1 * MM_TO_IDX, True)
-        
-        # change current directory to exe/script dir after finding the ui file
-        if getattr(sys, 'frozen', False):
-            application_path = os.path.dirname(sys.executable)
-        elif __file__:
-            application_path = os.path.dirname(__file__)
-        os.chdir(application_path) # to save files properly
 
         # GUI init.
-        self.scan_button = self.findChild(QPushButton, "pushButton_3")
-        self.save_data_checkbox = self.findChild(QCheckBox, "checkBox_4")
-        self.auto_prefix_box = self.findChild(QLineEdit, "lineEdit_14")
-        self.manual_prefix_box = self.findChild(QLineEdit, "lineEdit_10")
-        self.auto_dir_box = self.findChild(QLineEdit, "lineEdit_7")
-        self.manual_dir_box = self.findChild(QLineEdit, "lineEdit_9")
-        self.start_spin = self.findChild(QDoubleSpinBox, "doubleSpinBox_7")
-        self.stop_spin = self.findChild(QDoubleSpinBox, "doubleSpinBox_8")
-        self.step_spin = self.findChild(QDoubleSpinBox, "doubleSpinBox_9")
-        self.currpos_mm_disp = self.findChild(QLabel, "position_nm_value_label")
-        self.currpos_steps_disp = self.findChild(QLabel, "position_steps_value_label")
-        self.scan_status = self.findChild(QLabel, "scan_status_value_label")
-        self.scan_progress = self.findChild(QProgressBar, "scan_status_progress_bar")
-        self.pos_spin: QDoubleSpinBox = self.findChild(QDoubleSpinBox, "doubleSpinBox_5")
-        self.move_to_position_button: QPushButton = self.findChild(QPushButton, "pushButton_12")
-        self.collect_data:QPushButton = self.findChild(QPushButton, "pushButton_13")
-        self.plotFrame: QWidget = self.findChild(QWidget, "graphPreview")
-        self.mainPlotFrame: QWidget = self.findChild(QWidget, "mainGraph")
-        self.plotBtnFrame: QWidget = self.findChild(QWidget, 'frame')
+        self.scan_button = self.findChild(QPushButton, "begin_scan_button")
+        self.save_data_checkbox = self.findChild(QCheckBox, "save_data_checkbox")
+        self.auto_prefix_box = self.findChild(QLineEdit, "scancon_prefix_lineedit")
+        self.manual_prefix_box = self.findChild(QLineEdit, "mancon_prefix_lineedit")
+        self.dir_box = self.findChild(QLineEdit, "save_dir_lineedit")
+        # self.auto_dir_box = self.findChild(QLineEdit, "lineEdit_7")
+        # self.manual_dir_box = self.findChild(QLineEdit, "lineEdit_9")
+        self.start_spin = self.findChild(QDoubleSpinBox, "start_set_spinbox")
+        self.stop_spin = self.findChild(QDoubleSpinBox, "end_set_spinbox")
+        self.step_spin = self.findChild(QDoubleSpinBox, "step_set_spinbox")
+
+        # These UI elements moved to begin programmatically created within the status bar.
+        self.currpos_mm_disp = self.findChild(QLabel, "currpos_nm")
+        self.currpos_steps_disp = self.findChild(QLabel, "currpos_steps")
+        self.scan_status = self.findChild(QLabel, "status_label")
+        self.scan_progress = self.findChild(QProgressBar, "progressbar")
+        
+
+        save_config_btn: QPushButton = self.findChild(QPushButton, 'save_config_button')
+        save_config_btn.clicked.connect(self.showConfigWindow)
+
+
+        self.pos_spin: QDoubleSpinBox = self.findChild(QDoubleSpinBox, "pos_set_spinbox")
+        self.move_to_position_button: QPushButton = self.findChild(QPushButton, "move_pos_button")
+        self.collect_data: QPushButton = self.findChild(QPushButton, "collect_data_button")
+        self.plotFrame: QWidget = self.findChild(QWidget, "data_graph")
+        # self.mainPlotFrame: QWidget = self.findChild(QWidget, "mainGraph")
+        # self.plotBtnFrame: QWidget = self.findChild(QWidget, 'frame')
+        self.xmin_in: QLineEdit = self.findChild(QLineEdit, "xmin_in")
+        self.ymin_in: QLineEdit = self.findChild(QLineEdit, "ymin_in")
+        self.xmax_in: QLineEdit = self.findChild(QLineEdit, "xmax_in")
+        self.ymax_in: QLineEdit = self.findChild(QLineEdit, "ymax_in")
+        self.plot_autorange: QCheckBox = self.findChild(QCheckBox, "autorange_checkbox")
+        self.plot_clear_plots: QPushButton = self.findChild(QPushButton, "clear_plots_button")
 
         self.xdata: list = [] # collection of xdata
         self.ydata: list = [] # collection of ydata
 
         self.plotCanvas = MplCanvas(self, width=5, height=4, dpi=100)
-        self.plotCanvas2 = MplCanvas(self, width=5, height=4, dpi=100)
         # self.plotCanvas.axes.plot([], [])
         self.scanRunning = False
         self.clearPlotFcn()
@@ -153,35 +203,11 @@ class Ui(QMainWindow):
         layout.addWidget(self.plotCanvas)
         self.plotFrame.setLayout(layout)
 
-        clearPlotBtn: QPushButton = QPushButton('Clear Plots')
-        clearPlotBtn.clicked.connect(self.clearPlotFcn)
-
-        layout = QtWidgets.QHBoxLayout()
-        layout.addStretch(1)
-        layout.addWidget(clearPlotBtn)
-
-        layout2 = QtWidgets.QVBoxLayout()
-        layout2.addLayout(layout)
-        layout2.addStretch(1)
-        self.plotBtnFrame.setLayout(layout2)
-
-        # second output
-        layout = QtWidgets.QVBoxLayout()
-        toolbar2 = NavigationToolbar(self.plotCanvas2, self)
-        layout.addWidget(toolbar2)
-        layout.addWidget(self.plotCanvas2)
-        layout2 = QtWidgets.QHBoxLayout()
-        layout2.addStretch(1)
-        clearPlotBtn2 = QPushButton('Clear Plots')
-        clearPlotBtn2.clicked.connect(self.clearPlotFcn)
-        layout2.addWidget(clearPlotBtn2)
-        layout.addLayout(layout2)
-        self.mainPlotFrame.setLayout(layout)
+        self.plot_clear_plots.clicked.connect(self.clearPlotFcn)
 
         self.manual_prefix_box.setText(self.manual_prefix)
         self.auto_prefix_box.setText(self.auto_prefix)
-        self.manual_dir_box.setText(self.manual_dir)
-        self.auto_dir_box.setText(self.auto_dir)
+        self.dir_box.setText(self.manual_dir)
 
         self.scan_button.clicked.connect(self.scan_button_pressed)
         self.collect_data.clicked.connect(self.manual_collect_button_pressed)
@@ -189,18 +215,13 @@ class Ui(QMainWindow):
         self.save_data_checkbox.stateChanged.connect(self.save_checkbox_toggled)
         self.auto_prefix_box.editingFinished.connect(self.auto_prefix_changed)
         self.manual_prefix_box.editingFinished.connect(self.manual_prefix_changed)
-        self.auto_dir_box.editingFinished.connect(self.auto_dir_changed)
-        self.manual_dir_box.editingFinished.connect(self.manual_dir_changed)
+        self.dir_box.editingFinished.connect(self.manual_dir_changed)
         self.start_spin.valueChanged.connect(self.start_changed)
         self.stop_spin.valueChanged.connect(self.stop_changed)
         self.step_spin.valueChanged.connect(self.step_changed)
         self.pos_spin.valueChanged.connect(self.manual_pos_changed)
 
-        self.scan = Scan(self)
-
-        self.scan.statusUpdate.connect(self.scan_statusUpdate_slot)
-        self.scan.progress.connect(self.scan_progress_slot)
-        self.scan.complete.connect(self.scan_complete_slot)
+        self.scan = Scan(weakref.proxy(self))
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_position_displays)
@@ -216,11 +237,6 @@ class Ui(QMainWindow):
             self.plotCanvas.axes.set_ylabel('Photo Current (pA)')
             self.plotCanvas.axes.grid()
             self.plotCanvas.draw()
-            self.plotCanvas2.axes.cla()
-            self.plotCanvas2.axes.set_xlabel('Location (mm)')
-            self.plotCanvas2.axes.set_ylabel('Photo Current (pA)')
-            self.plotCanvas2.axes.grid()
-            self.plotCanvas2.draw()
             self.xdata = []
             self.ydata = []
         return
@@ -230,42 +246,34 @@ class Ui(QMainWindow):
         self.plotCanvas.axes.cla()
         self.plotCanvas.axes.set_xlabel('Location (mm)')
         self.plotCanvas.axes.set_ylabel('Photo Current (pA)')
-        self.plotCanvas2.axes.cla()
-        self.plotCanvas2.axes.set_xlabel('Location (mm)')
-        self.plotCanvas2.axes.set_ylabel('Photo Current (pA)')
         for idx in range(len(self.xdata)):
             if len(self.xdata[idx]) == len(self.ydata[idx]):
                 self.plotCanvas.axes.plot(self.xdata[idx], self.ydata[idx], label = 'Scan %d'%(idx + 1))
-                self.plotCanvas2.axes.plot(self.xdata[idx], self.ydata[idx], label = 'Scan %d'%(idx + 1))
         self.plotCanvas.axes.legend()
-        self.plotCanvas2.axes.legend()
         self.plotCanvas.axes.grid()
-        self.plotCanvas2.axes.grid()
         self.plotCanvas.draw()
-        self.plotCanvas2.draw()
         return
 
     def scan_statusUpdate_slot(self, status):
-        self.scan_status.setText(status)
+        self.scan_status.setText('System status: <b>%s</b>'%(status))
 
     def scan_progress_slot(self, curr_percent):
         self.scan_progress.setValue(curr_percent)
 
     def scan_complete_slot(self):
         self.scan_button.setText('Begin Scan')
-        self.scan_status.setText("IDLE")
+        self.scan_status.setText("System status: <b>IDLE</b>")
         self.scan_progress.reset()
 
     def update_position_displays(self):
         self.current_position = self.motor_ctrl.get_position()
         self.moving = self.motor_ctrl.is_moving()
-        self.currpos_mm_disp.setText('%.4f mm'%(self.current_position / MM_TO_IDX))
-        self.currpos_steps_disp.setText(str(self.current_position) + ' steps')
+        self.currpos_mm_disp.setText('Current: %.4f nm'%(self.current_position / self.conversion_slope + self.zero_ofst))
+        self.currpos_steps_disp.setText('%d steps'%(self.current_position))
 
     def scan_button_pressed(self):
         print("Scan button pressed!")
         if not self.scanRunning:
-            self.scan.set_params(self)
             self.scan.start()
             self.scan_button.setText('Stop Scan')
         else:
@@ -307,19 +315,22 @@ class Ui(QMainWindow):
 
     def start_changed(self):
         print("Start changed to: %s mm"%(self.start_spin.value()))
-        self.startpos = self.start_spin.value() * MM_TO_IDX
+        self.startpos = (self.start_spin.value() - self.zero_ofst) * self.conversion_slope
+        print(self.startpos)
 
     def stop_changed(self):
         print("Stop changed to: %s mm"%(self.stop_spin.value()))
-        self.stoppos = self.stop_spin.value() * MM_TO_IDX
+        self.stoppos = (self.stop_spin.value() - self.zero_ofst) * self.conversion_slope
+        print(self.stoppos)
 
     def step_changed(self):
         print("Step changed to: %s mm"%(self.step_spin.value()))
-        self.steppos = self.step_spin.value() * MM_TO_IDX
+        self.steppos = (self.step_spin.value()) * self.conversion_slope
+        print(self.steppos)
 
     def manual_pos_changed(self):
         print("Manual position changed to: %s mm"%(self.pos_spin.value()))
-        self.manual_position = self.pos_spin.value() * MM_TO_IDX
+        self.manual_position = (self.pos_spin.value() - self.zero_ofst) * self.conversion_slope
 
     def take_data(self):
 
@@ -337,6 +348,50 @@ class Ui(QMainWindow):
         self.sav_file.write(self.pa.sample_data())
 
         self.sav_file.close()
+
+    def showConfigWindow(self):
+        if self.machine_conf_win is None:
+            ui_file_name = exeDir + '/grating_input.ui'
+            ui_file = QFile(ui_file_name)
+            if not ui_file.open(QIODevice.ReadOnly):
+                print(f"Cannot open {ui_file_name}: {ui_file.errorString()}")
+                raise RuntimeError('Could not load grating input UI file')
+            
+            self.machine_conf_win = QDialog()
+            uic.loadUi(ui_file, self.machine_conf_win)
+
+            self.grating_density_in = self.machine_conf_win.findChild(QDoubleSpinBox, 'grating_density_in')
+            self.grating_density_in.setValue(self.grating_density)
+            
+            self.zero_ofst_in = self.machine_conf_win.findChild(QDoubleSpinBox, 'zero_offset_in')
+            self.zero_ofst_in.setValue(self.zero_ofst)
+            
+            self.incidence_ang_in = self.machine_conf_win.findChild(QDoubleSpinBox, 'incidence_angle_in')
+            self.incidence_ang_in.setValue(self.incidence_ang)
+
+            self.arm_length_in = self.machine_conf_win.findChild(QDoubleSpinBox, 'arm_length_in')
+            self.arm_length_in.setValue(self.arm_length)
+
+            self.diff_order_in = self.machine_conf_win.findChild(QDoubleSpinBox, 'diff_order_in')
+            self.diff_order_in.setValue(self.diff_order)
+
+            self.machine_conf_btn = self.machine_conf_win.findChild(QPushButton, 'update_conf_btn')
+            self.machine_conf_btn.clicked.connect(self.applyMachineConf)
+        
+        self.machine_conf_win.show()
+
+    def applyMachineConf(self):
+        print('Apply config called')
+        self.grating_density = self.grating_density_in.value()
+        self.diff_order = self.diff_order_in.value()
+        self.zero_ofst = self.zero_ofst_in.value()
+        self.incidence_ang = self.incidence_ang_in.value()
+        self.arm_length = self.arm_length_in.value()
+
+        self.conversion_slope = 2 * self.grating_density * np.cos(np.pi * self.incidence_ang / 180) / self.arm_length * MM_TO_IDX / self.diff_order
+
+        self.machine_conf_win.close()
+
 
     # TODO: Use QThreads to prevent freezing GUI. For now, `self.application.processEvents()`.
     # TODO: (cont.): https://www.xingyulei.com/post/qt-threading/
@@ -422,14 +477,14 @@ class Scan(QThread):
 
     def __init__(self, parent: QMainWindow):
         super(Scan, self).__init__()
-        self.other: QMainWindow = parent
-        print(self.other)
+        self.other: Ui = parent
+        self.statusUpdate.connect(self.other.scan_statusUpdate_slot)
+        self.progress.connect(self.other.scan_progress_slot)
+        self.complete.connect(self.other.scan_complete_slot)
+        print('mainWindow reference in scan init: %d'%(sys.getrefcount(self.other) - 1))
 
     def __del__(self):
         self.wait()
-
-    def set_params(self, other: Ui):
-        self.other: Ui = other
 
     def run(self):
         print(self.other)
@@ -449,6 +504,8 @@ class Scan(QThread):
         # self.motor_ctrl.move_to(self.startpos, True)
         
         # self.statusUpdate.emit("SAMPLING")
+
+        print(self.other.startpos, self.other.stoppos, self.other.steppos)
 
         scanrange = np.arange(self.other.startpos, self.other.stoppos + self.other.steppos, self.other.steppos)
         # self.other.pa.set_samples(3)
@@ -499,27 +556,33 @@ class Scan(QThread):
             sav_file.close()
         self.other.scanRunning = False
         self.complete.emit()
-
-import os
-import sys
-
-# Change the current dir to the temporary one created by PyInstaller
-try:
-    os.chdir(sys._MEIPASS)
-    print(sys._MEIPASS)
-except:
-    pass
+        print('mainWindow reference in scan end: %d'%(sys.getrefcount(self.other) - 1))
 
 # Main function.
 if __name__ == '__main__':
+    # There will be three separate GUIs:
+    # 1. Initialization loading screen, where devices are being searched for and the current status and tasks are displayed. If none are found, display an error and an exit button.
+    # 2. The device selection display, where devices can be selected and their settings can be changed prior to entering the control program.
+    # 3. The control GUI (mainwindow.ui), where the user has control over what the device(s) do.
+    
     application = QApplication(sys.argv)
 
+    # First, the loading screen.
 
-    ui_file_name = "mainwindow.ui"
+    # Then, we load up the device selection UI.
+    ui_file_name = exeDir + '/grating_input.ui'
+    ui_file = QFile(ui_file_name)
+    if not ui_file.open(QIODevice.ReadOnly):
+        print(f"Cannot open {ui_file_name}: {ui_file.errorString()}")
+        sys.exit(-1)
+
+    # Main GUI bootup.
+    ui_file_name = exeDir + '/' + "mainwindow_mk2.ui"
     ui_file = QFile(ui_file_name) # workaround to load UI file with pyinstaller
     if not ui_file.open(QIODevice.ReadOnly):
         print(f"Cannot open {ui_file_name}: {ui_file.errorString()}")
         sys.exit(-1)
+
     # Initializes the GUI.
     mainWindow = Ui(application, ui_file)
     
@@ -534,6 +597,8 @@ if __name__ == '__main__':
     
     # Wait for the Qt loop to exit before exiting.
     ret = application.exec_() # block until
-    del mainWindow.scan # delete scan, containing reference to mainWindow()
+    print('mainwindow: %d'%(sys.getrefcount(mainWindow) - 1))
+    print('motor: %d'%(sys.getrefcount(mainWindow.motor_ctrl) - 1))
+    print('pa: %d'%(sys.getrefcount(mainWindow.pa) - 1))
     del mainWindow
     sys.exit(ret)
