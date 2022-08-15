@@ -115,6 +115,7 @@ class Ui(QMainWindow):
         self.zero_ofst_in: QDoubleSpinBox = None
         self.arm_length_in: QDoubleSpinBox = None
         self.incidence_ang_in: QDoubleSpinBox = None
+        self.tangent_ang_in: QDoubleSpinBox = None
         self.machine_conf_btn: QPushButton = None
 
         self.grating_density = 833.333 # grating density
@@ -122,7 +123,15 @@ class Ui(QMainWindow):
         self.zero_ofst = 0.34 # mm
         self.arm_length = 550.0 # mm
         self.incidence_ang = 32 # deg
-        self.conversion_slope = 2 * self.grating_density * np.cos(np.pi * self.incidence_ang / 180) / self.arm_length * MM_TO_IDX / self.diff_order # verify eqn
+        self.tangent_ang = 0 # deg
+        self.conversion_slope = 2 / self.grating_density * 1e3 * np.cos(np.pi * self.incidence_ang / 180) * np.cos(np.pi * self.tangent_ang / 180) / self.arm_length * MM_TO_IDX / self.diff_order # verify eqn
+
+        print('\n\nConversion constant: %f\n'%(self.conversion_slope))
+
+        self.manual_position = 0 # 0 nm
+        self.startpos = 0
+        self.stoppos = 0
+        self.steppos = 0
 
         self.application = application
 
@@ -219,6 +228,7 @@ class Ui(QMainWindow):
         self.start_spin.valueChanged.connect(self.start_changed)
         self.stop_spin.valueChanged.connect(self.stop_changed)
         self.step_spin.valueChanged.connect(self.step_changed)
+        self.pos_spin.setValue(self.manual_position / self.conversion_slope - self.zero_ofst)
         self.pos_spin.valueChanged.connect(self.manual_pos_changed)
 
         self.scan = Scan(weakref.proxy(self))
@@ -268,7 +278,7 @@ class Ui(QMainWindow):
     def update_position_displays(self):
         self.current_position = self.motor_ctrl.get_position()
         self.moving = self.motor_ctrl.is_moving()
-        self.currpos_mm_disp.setText('Current: %.4f nm'%(self.current_position / self.conversion_slope + self.zero_ofst))
+        self.currpos_mm_disp.setText('Current: %.4f nm'%(self.current_position / self.conversion_slope - self.zero_ofst))
         self.currpos_steps_disp.setText('%d steps'%(self.current_position))
 
     def scan_button_pressed(self):
@@ -286,7 +296,7 @@ class Ui(QMainWindow):
 
     def move_to_position_button_pressed(self):
         self.moving = True
-        print("Move to position button pressed!")
+        print("Move to position button pressed, moving to %d"%(self.manual_position))
         self.motor_ctrl.move_to(self.manual_position, False)
 
     def save_checkbox_toggled(self):
@@ -315,12 +325,12 @@ class Ui(QMainWindow):
 
     def start_changed(self):
         print("Start changed to: %s mm"%(self.start_spin.value()))
-        self.startpos = (self.start_spin.value() - self.zero_ofst) * self.conversion_slope
+        self.startpos = (self.start_spin.value() + self.zero_ofst) * self.conversion_slope
         print(self.startpos)
 
     def stop_changed(self):
         print("Stop changed to: %s mm"%(self.stop_spin.value()))
-        self.stoppos = (self.stop_spin.value() - self.zero_ofst) * self.conversion_slope
+        self.stoppos = (self.stop_spin.value() + self.zero_ofst) * self.conversion_slope
         print(self.stoppos)
 
     def step_changed(self):
@@ -330,7 +340,7 @@ class Ui(QMainWindow):
 
     def manual_pos_changed(self):
         print("Manual position changed to: %s mm"%(self.pos_spin.value()))
-        self.manual_position = (self.pos_spin.value() - self.zero_ofst) * self.conversion_slope
+        self.manual_position = (self.pos_spin.value() + self.zero_ofst) * self.conversion_slope
 
     def take_data(self):
 
@@ -360,6 +370,8 @@ class Ui(QMainWindow):
             self.machine_conf_win = QDialog()
             uic.loadUi(ui_file, self.machine_conf_win)
 
+            self.machine_conf_win.setWindowTitle('Monochromator Configuration')
+
             self.grating_density_in = self.machine_conf_win.findChild(QDoubleSpinBox, 'grating_density_in')
             self.grating_density_in.setValue(self.grating_density)
             
@@ -368,6 +380,9 @@ class Ui(QMainWindow):
             
             self.incidence_ang_in = self.machine_conf_win.findChild(QDoubleSpinBox, 'incidence_angle_in')
             self.incidence_ang_in.setValue(self.incidence_ang)
+            
+            self.tangent_ang_in = self.machine_conf_win.findChild(QDoubleSpinBox, 'tangent_angle_in')
+            self.tangent_ang_in.setValue(self.tangent_ang)
 
             self.arm_length_in = self.machine_conf_win.findChild(QDoubleSpinBox, 'arm_length_in')
             self.arm_length_in.setValue(self.arm_length)
@@ -388,7 +403,7 @@ class Ui(QMainWindow):
         self.incidence_ang = self.incidence_ang_in.value()
         self.arm_length = self.arm_length_in.value()
 
-        self.conversion_slope = 2 * self.grating_density * np.cos(np.pi * self.incidence_ang / 180) / self.arm_length * MM_TO_IDX / self.diff_order
+        self.conversion_slope = 2 / self.grating_density * 1e3 * np.cos(np.pi * self.incidence_ang / 180) * np.cos(np.pi * self.tangent_ang / 180) / self.arm_length * MM_TO_IDX / self.diff_order
 
         self.machine_conf_win.close()
 
