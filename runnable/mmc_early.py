@@ -123,7 +123,7 @@ class Ui(QMainWindow):
         self.grating_density = 1200 # grooves/mm
         self.tangent_ang = 0 # deg
         self.incidence_ang = 32 # deg
-        self.zero_ofst = 0 # nm
+        self.zero_ofst = 37.8461 # nm
 
         self.conversion_slope = ((self.arm_length * self.diff_order * self.grating_density)/(2 * (m.cos(m.radians(self.tangent_ang))) * (m.cos(m.radians(self.incidence_ang))) * 1e6))
 
@@ -254,7 +254,7 @@ class Ui(QMainWindow):
         print('clear called')
         if not self.scanRunning:
             self.plotCanvas.axes.cla()
-            self.plotCanvas.axes.set_xlabel('Location (mm)')
+            self.plotCanvas.axes.set_xlabel('Location (nm)')
             self.plotCanvas.axes.set_ylabel('Photo Current (pA)')
             self.plotCanvas.axes.grid()
             self.plotCanvas.draw()
@@ -265,7 +265,7 @@ class Ui(QMainWindow):
     def updatePlot(self):
         print('Update called')
         self.plotCanvas.axes.cla()
-        self.plotCanvas.axes.set_xlabel('Location (mm)')
+        self.plotCanvas.axes.set_xlabel('Location (nm)')
         self.plotCanvas.axes.set_ylabel('Photo Current (pA)')
         for idx in range(len(self.xdata)):
             if len(self.xdata[idx]) == len(self.ydata[idx]):
@@ -289,7 +289,8 @@ class Ui(QMainWindow):
     def update_position_displays(self):
         self.current_position = self.motor_ctrl.get_position()
         self.moving = self.motor_ctrl.is_moving()
-        self.currpos_mm_disp.setText('Current: %.4f nm'%(self.current_position / self.conversion_slope - self.zero_ofst))
+        # print(self.current_position)
+        self.currpos_mm_disp.setText('Current: %.4f nm'%(((self.current_position / MM_TO_IDX) / self.conversion_slope) - self.zero_ofst))
         self.currpos_steps_disp.setText('%d steps'%(self.current_position))
 
     def scan_button_pressed(self):
@@ -569,7 +570,7 @@ class Scan(QThread):
             except Exception:
                 continue
             # print(mes, err)
-            self.other.xdata[pidx].append(pos / MM_TO_IDX)
+            self.other.xdata[pidx].append((((pos / MM_TO_IDX) / self.other.conversion_slope)) - self.other.zero_ofst)
             self.other.ydata[pidx].append(-mes * 1e12)
             # print(self.other.xdata[pidx], self.other.ydata[pidx])
             self.other.updatePlot()
