@@ -253,7 +253,8 @@ class Thorlabs: # Wrapper class for TLI methods
             Thorlabs.KST101.open_devices.append(int(self.serial))
             self.open = True
             # Run self connection test.
-            ret = self._CheckConnection(self.serial)
+            # ret = self._CheckConnection(self.serial)
+            ret = self._CheckConnection()
             if ret == False:
                 self._Close()
                 raise RuntimeError('Device opened but connection test failed.')

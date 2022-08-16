@@ -118,13 +118,16 @@ class Ui(QMainWindow):
         self.tangent_ang_in: QDoubleSpinBox = None
         self.machine_conf_btn: QPushButton = None
 
-        self.grating_density = 833.333 # grating density
+        self.arm_length = 56.53654 # mm
         self.diff_order = 1
-        self.zero_ofst = 0.34 # mm
-        self.arm_length = 550.0 # mm
-        self.incidence_ang = 32 # deg
+        self.grating_density = 1200 # grooves/mm
         self.tangent_ang = 0 # deg
-        self.conversion_slope = 2 / self.grating_density * 1e3 * np.cos(np.pi * self.incidence_ang / 180) * np.cos(np.pi * self.tangent_ang / 180) / self.arm_length * MM_TO_IDX / self.diff_order # verify eqn
+        self.incidence_ang = 32 # deg
+        self.zero_ofst = 0 # nm
+
+        self.conversion_slope = ((self.arm_length * self.diff_order * self.grating_density)/(2 * (m.cos(m.radians(self.tangent_ang))) * (m.cos(m.radians(self.incidence_ang))) * 1e6))
+
+        # pos_mm = ((arm_length_mm * order * grating_density_grv_mm)/(2 * (m.cos(m.radians(tan_ang_deg))) * (m.cos(m.radians(inc_ang_deg))) * 1e6)) * (INPUT_POSITION_NM - zero_offset_nm)
 
         print('\n\nConversion constant: %f\n'%(self.conversion_slope))
 
@@ -142,23 +145,29 @@ class Ui(QMainWindow):
         self.is_conv_set = False # Use this flag to set conversion
 
         #  Picoammeter init.
-        try:
-            self.pa = pico.Picoammeter(3)
-        except:
-            self.pa = pico.Picodummy(3)
+        # try:
+        self.pa = pico.Picoammeter(3)
+        # except:
+        #     self.pa = pico.Picodummy(3)
 
         #  KST101 init.
-        try:
-            serials = tlkt.Thorlabs.ListDevicesAny()
-            if len(serials) == 0:
-                raise RuntimeError('No KST101 controller found')
-            self.motor_ctrl = tlkt.Thorlabs.KST101(serials[0])
-            if (self.motor_ctrl._CheckConnection() == False):
-                raise RuntimeError('Connection with motor controller failed.')
-            self.motor_ctrl.set_stage('ZST25')
-        except:
-            serials = tlkt.Thorlabs.KSTDummy._ListDevices()
-            self.motor_ctrl = tlkt.Thorlabs.KSTDummy(serials[0])
+        print("KST101 init begin.")
+        # try:
+        print("Trying...")
+        serials = tlkt.Thorlabs.ListDevicesAny()
+        print(serials)
+        if len(serials) == 0:
+            print("No KST101 controller found.")
+            raise RuntimeError('No KST101 controller found')
+        self.motor_ctrl = tlkt.Thorlabs.KST101(serials[0])
+        if (self.motor_ctrl._CheckConnection() == False):
+            print("Connection with motor controller failed.")
+            raise RuntimeError('Connection with motor controller failed.')
+        self.motor_ctrl.set_stage('ZST25')
+        # except:
+        #     print("Exception")
+        #     serials = tlkt.Thorlabs.KSTDummy._ListDevices()
+        #     self.motor_ctrl = tlkt.Thorlabs.KSTDummy(serials[0])
 
         # Move to 1mm (0nm)
         # self.motor_ctrl.move_to(1 * MM_TO_IDX, True)
@@ -228,7 +237,9 @@ class Ui(QMainWindow):
         self.start_spin.valueChanged.connect(self.start_changed)
         self.stop_spin.valueChanged.connect(self.stop_changed)
         self.step_spin.valueChanged.connect(self.step_changed)
-        self.pos_spin.setValue(self.manual_position / self.conversion_slope - self.zero_ofst)
+        self.pos_spin.setValue(self.conversion_slope * (self.manual_position + self.zero_ofst))
+        
+        # self.pos_spin.setValue(0)
         self.pos_spin.valueChanged.connect(self.manual_pos_changed)
 
         self.scan = Scan(weakref.proxy(self))
@@ -296,8 +307,10 @@ class Ui(QMainWindow):
 
     def move_to_position_button_pressed(self):
         self.moving = True
-        print("Move to position button pressed, moving to %d"%(self.manual_position))
-        self.motor_ctrl.move_to(self.manual_position, False)
+        print("Conversion slope: " + str(self.conversion_slope))
+        print("Manual position: " + str(self.manual_position))
+        print("Move to position button pressed, moving to %d mm"%(self.manual_position))
+        self.motor_ctrl.move_to(self.manual_position * MM_TO_IDX, False)
 
     def save_checkbox_toggled(self):
         print("Save checkbox toggled.")
@@ -403,7 +416,9 @@ class Ui(QMainWindow):
         self.incidence_ang = self.incidence_ang_in.value()
         self.arm_length = self.arm_length_in.value()
 
-        self.conversion_slope = 2 / self.grating_density * 1e3 * np.cos(np.pi * self.incidence_ang / 180) * np.cos(np.pi * self.tangent_ang / 180) / self.arm_length * MM_TO_IDX / self.diff_order
+        # self.conversion_slope = 2 / self.grating_density * 1e3 * np.cos(np.pi * self.incidence_ang / 180) * np.cos(np.pi * self.tangent_ang / 180) / self.arm_length * MM_TO_IDX / self.diff_order
+
+        self.conversion_slope = ((self.arm_length * self.diff_order * self.grating_density)/(2 * (m.cos(m.radians(self.tangent_ang))) * (m.cos(m.radians(self.incidence_ang))) * 1e6))
 
         self.machine_conf_win.close()
 
@@ -519,7 +534,8 @@ class Scan(QThread):
         # self.motor_ctrl.move_to(self.startpos, True)
         
         # self.statusUpdate.emit("SAMPLING")
-
+        print("SCAN QTHREAD")
+        print("Start | Stop | Step")
         print(self.other.startpos, self.other.stoppos, self.other.steppos)
 
         scanrange = np.arange(self.other.startpos, self.other.stoppos + self.other.steppos, self.other.steppos)
@@ -536,7 +552,7 @@ class Scan(QThread):
             if not self.other.scanRunning:
                 break
             self.statusUpdate.emit("MOVING")
-            self.other.motor_ctrl.move_to(dpos, True)
+            self.other.motor_ctrl.move_to(dpos * MM_TO_IDX, True)
             pos = self.other.motor_ctrl.get_position()
             self.statusUpdate.emit("SAMPLING")
             buf = self.other.pa.sample_data()
