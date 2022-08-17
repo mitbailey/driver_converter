@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>Form</class>
- <widget class="QWidget" name="Form">
+ <class>grating_combo</class>
+ <widget class="QWidget" name="grating_combo">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -49,6 +49,7 @@
           <font>
            <family>Times New Roman</family>
            <pointsize>12</pointsize>
+           <weight>75</weight>
            <bold>true</bold>
           </font>
          </property>
@@ -84,255 +85,142 @@
        <property name="frameShadow">
         <enum>QFrame::Raised</enum>
        </property>
-       <widget class="QLabel" name="label_7">
-        <property name="geometry">
-         <rect>
-          <x>411</x>
-          <y>62</y>
-          <width>51</width>
-          <height>25</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>nm</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_4">
-        <property name="geometry">
-         <rect>
-          <x>190</x>
-          <y>248</y>
-          <width>114</width>
-          <height>25</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Arm Length (&lt;i&gt;L&lt;/i&gt;)</string>
-        </property>
-       </widget>
-       <widget class="QDoubleSpinBox" name="arm_length_in">
-        <property name="geometry">
-         <rect>
-          <x>310</x>
-          <y>248</y>
-          <width>95</width>
-          <height>25</height>
-         </rect>
-        </property>
-        <property name="maximum">
-         <double>500000.000000000000000</double>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_6">
-        <property name="geometry">
-         <rect>
-          <x>411</x>
-          <y>0</y>
-          <width>51</width>
-          <height>25</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>lines/mm</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_11">
-        <property name="geometry">
-         <rect>
-          <x>411</x>
-          <y>186</y>
-          <width>51</width>
-          <height>25</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>degrees</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label">
-        <property name="geometry">
-         <rect>
-          <x>190</x>
-          <y>0</y>
-          <width>114</width>
-          <height>25</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Grating Density (&lt;i&gt;G&lt;/i&gt;)</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_10">
-        <property name="geometry">
-         <rect>
-          <x>190</x>
-          <y>186</y>
-          <width>114</width>
-          <height>25</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Tangent Angle (&lt;i&gt;&amp;theta;&lt;/i&gt;&lt;sub&gt;tan&lt;/sub&gt;)</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_9">
-        <property name="geometry">
-         <rect>
-          <x>411</x>
-          <y>248</y>
-          <width>51</width>
-          <height>25</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>mm</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_5">
-        <property name="geometry">
-         <rect>
-          <x>190</x>
-          <y>310</y>
-          <width>114</width>
-          <height>25</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Diffraction Order (&lt;i&gt;m&lt;/i&gt;)</string>
-        </property>
-       </widget>
-       <widget class="QDoubleSpinBox" name="incidence_angle_in">
-        <property name="geometry">
-         <rect>
-          <x>310</x>
-          <y>124</y>
-          <width>95</width>
-          <height>25</height>
-         </rect>
-        </property>
-        <property name="minimum">
-         <double>-90.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>90.000000000000000</double>
-        </property>
-       </widget>
-       <widget class="QDoubleSpinBox" name="tangent_angle_in">
-        <property name="geometry">
-         <rect>
-          <x>310</x>
-          <y>186</y>
-          <width>95</width>
-          <height>25</height>
-         </rect>
-        </property>
-        <property name="minimum">
-         <double>-90.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>90.000000000000000</double>
-        </property>
-       </widget>
-       <widget class="QDoubleSpinBox" name="zero_offset_in">
-        <property name="geometry">
-         <rect>
-          <x>310</x>
-          <y>62</y>
-          <width>95</width>
-          <height>25</height>
-         </rect>
-        </property>
-        <property name="decimals">
-         <number>4</number>
-        </property>
-        <property name="minimum">
-         <double>-500000.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>500000.000000000000000</double>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_2">
-        <property name="geometry">
-         <rect>
-          <x>190</x>
-          <y>62</y>
-          <width>114</width>
-          <height>25</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Zero Order Offset (&lt;i&gt;&amp;lambda;&lt;/i&gt;&lt;sub&gt;0&lt;/sub&gt;)</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_8">
-        <property name="geometry">
-         <rect>
-          <x>411</x>
-          <y>124</y>
-          <width>51</width>
-          <height>25</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>degrees</string>
-        </property>
-       </widget>
-       <widget class="QPushButton" name="update_conf_btn">
-        <property name="geometry">
-         <rect>
-          <x>190</x>
-          <y>372</y>
-          <width>272</width>
-          <height>24</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Update Configuration</string>
-        </property>
-       </widget>
-       <widget class="QDoubleSpinBox" name="grating_density_in">
-        <property name="geometry">
-         <rect>
-          <x>310</x>
-          <y>0</y>
-          <width>95</width>
-          <height>25</height>
-         </rect>
-        </property>
-        <property name="decimals">
-         <number>4</number>
-        </property>
-        <property name="maximum">
-         <double>500000.000000000000000</double>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_3">
-        <property name="geometry">
-         <rect>
-          <x>190</x>
-          <y>124</y>
-          <width>114</width>
-          <height>25</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Incidence Angle (&lt;i&gt;&amp;theta;&lt;/i&gt;&lt;sub&gt;inc&lt;/sub&gt;)</string>
-        </property>
-       </widget>
-       <widget class="QDoubleSpinBox" name="diff_order_in">
-        <property name="geometry">
-         <rect>
-          <x>310</x>
-          <y>310</y>
-          <width>95</width>
-          <height>25</height>
-         </rect>
-        </property>
-        <property name="decimals">
-         <number>0</number>
-        </property>
-       </widget>
+       <layout class="QGridLayout" name="gridLayout_2">
+        <item row="1" column="1">
+         <widget class="QDoubleSpinBox" name="zero_offset_in">
+          <property name="decimals">
+           <number>4</number>
+          </property>
+          <property name="minimum">
+           <double>-500000.000000000000000</double>
+          </property>
+          <property name="maximum">
+           <double>500000.000000000000000</double>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="2">
+         <widget class="QLabel" name="label_8">
+          <property name="text">
+           <string>degrees</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0">
+         <widget class="QLabel" name="label_10">
+          <property name="text">
+           <string>Tangent Angle (&lt;i&gt;&amp;theta;&lt;/i&gt;&lt;sub&gt;tan&lt;/sub&gt;)</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="2">
+         <widget class="QLabel" name="label_9">
+          <property name="text">
+           <string>mm</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="0">
+         <widget class="QLabel" name="label">
+          <property name="text">
+           <string>Grating Density (&lt;i&gt;G&lt;/i&gt;)</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="2">
+         <widget class="QLabel" name="label_6">
+          <property name="text">
+           <string>lines/mm</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="label_3">
+          <property name="text">
+           <string>Incidence Angle (&lt;i&gt;&amp;theta;&lt;/i&gt;&lt;sub&gt;inc&lt;/sub&gt;)</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="0">
+         <widget class="QLabel" name="label_4">
+          <property name="text">
+           <string>Arm Length (&lt;i&gt;L&lt;/i&gt;)</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="1">
+         <widget class="QDoubleSpinBox" name="arm_length_in">
+          <property name="maximum">
+           <double>500000.000000000000000</double>
+          </property>
+         </widget>
+        </item>
+        <item row="5" column="0">
+         <widget class="QLabel" name="label_5">
+          <property name="text">
+           <string>Diffraction Order (&lt;i&gt;m&lt;/i&gt;)</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="2">
+         <widget class="QLabel" name="label_7">
+          <property name="text">
+           <string>nm</string>
+          </property>
+         </widget>
+        </item>
+        <item row="5" column="1">
+         <widget class="QDoubleSpinBox" name="diff_order_in">
+          <property name="decimals">
+           <number>0</number>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="label_2">
+          <property name="text">
+           <string>Zero Order Offset (&lt;i&gt;&amp;lambda;&lt;/i&gt;&lt;sub&gt;0&lt;/sub&gt;)</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QDoubleSpinBox" name="incidence_angle_in">
+          <property name="minimum">
+           <double>-90.000000000000000</double>
+          </property>
+          <property name="maximum">
+           <double>90.000000000000000</double>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="1">
+         <widget class="QDoubleSpinBox" name="tangent_angle_in">
+          <property name="minimum">
+           <double>-90.000000000000000</double>
+          </property>
+          <property name="maximum">
+           <double>90.000000000000000</double>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="2">
+         <widget class="QLabel" name="label_11">
+          <property name="text">
+           <string>degrees</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QComboBox" name="grating_combo_2"/>
+        </item>
+        <item row="6" column="1">
+         <widget class="QPushButton" name="update_conf_btn">
+          <property name="text">
+           <string>Update Configuration</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </widget>
      </item>
     </layout>

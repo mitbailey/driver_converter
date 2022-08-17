@@ -42,7 +42,7 @@ from PyQt5.QtWidgets import (QMainWindow, QDoubleSpinBox, QApplication, QComboBo
                              QFormLayout, QHBoxLayout, QLabel, QListView, QMessageBox, QPushButton,
                              QSizePolicy, QSlider, QStyle, QToolButton, QVBoxLayout, QWidget, QLineEdit, QPlainTextEdit,
                              QTableWidget, QTableWidgetItem, QSplitter, QAbstractItemView, QStyledItemDelegate, QHeaderView, QFrame, QProgressBar, QCheckBox, QToolTip, QGridLayout,
-                             QLCDNumber)
+                             QLCDNumber, QAbstractSpinBox)
 from PyQt5.QtCore import QTimer
 from io import TextIOWrapper
 
@@ -116,6 +116,7 @@ class Ui(QMainWindow):
     def __init__(self, application, uiresource = None):
 
         self.machine_conf_win: QDialog = None
+        self.grating_conf_win: QDialog = None
         self.grating_density_in: QDoubleSpinBox = None
         self.diff_order_in: QDoubleSpinBox = None
         self.zero_ofst_in: QDoubleSpinBox = None
@@ -124,9 +125,12 @@ class Ui(QMainWindow):
         self.tangent_ang_in: QDoubleSpinBox = None
         self.machine_conf_btn: QPushButton = None
 
+        self.grating_combo_lstr = ['1200', '2400', '* New Entry']
+        self.current_grating_idx = 0
+
         self.arm_length = 56.53654 # mm
         self.diff_order = 1
-        self.grating_density = 1200 # grooves/mm
+        self.grating_density = float(self.grating_combo_lstr[self.current_grating_idx]) # grooves/mm
         self.tangent_ang = 0 # deg
         self.incidence_ang = 32 # deg
         self.zero_ofst = 37.8461 # nm
@@ -399,6 +403,66 @@ class Ui(QMainWindow):
 
         self.sav_file.close()
 
+    def showGratingWindow(self):
+        if self.grating_conf_win is None: 
+            self.grating_conf_win = QDialog(self)
+
+            self.grating_conf_win.setWindowTitle('Grating Density Input')
+            self.grating_conf_win.setMinimumSize(320, 320)
+
+            # self.grating_spinbox: SelectAllDoubleSpinBox = SelectAllDoubleSpinBox()
+            self.grating_spinbox: QDoubleSpinBox = QDoubleSpinBox()
+            self.grating_spinbox.setMinimum(0)
+            self.grating_spinbox.setMaximum(50000)
+            self.grating_spinbox.setButtonSymbols(QAbstractSpinBox.NoButtons)
+            self.grating_spinbox.setDecimals(4)
+
+            apply_button = QPushButton('Add Entry')
+            apply_button.clicked.connect(self.applyGratingInput)
+
+            layout = QVBoxLayout()
+            layout.addWidget(self.grating_spinbox)
+            layout.addStretch(1)
+            layout2 = QHBoxLayout()
+            layout2.addStretch(1)
+            layout2.addWidget(apply_button)
+            layout2.addStretch(1)
+            layout.addLayout(layout2)
+
+            # layout.addWidget(self.apply_button)
+            self.grating_conf_win.setLayout(layout)
+
+        self.grating_spinbox.setFocus() # Automatically sets this as focus.
+        self.grating_spinbox.selectAll()
+        self.grating_conf_win.exec()
+
+    def applyGratingInput(self):
+        val = self.grating_spinbox.value()
+        exists = False
+        for v in self.grating_combo_lstr[:-1]:
+            if float(v) == val:
+                exists = True
+                break
+        if not exists:
+            out = str(self.grating_spinbox.value())
+            if int(float(out)) == float(out):
+                out = out.split('.')[0]
+            self.grating_combo_lstr.insert(-1, out)
+            self.grating_combo.insertItem(self.grating_combo.count() - 1, self.grating_combo_lstr[-2])
+            self.grating_combo.setCurrentIndex(self.grating_combo.count() - 2)
+        self.grating_conf_win.close()    
+
+    def newGratingItem(self, idx: int):
+        if idx != len(self.grating_combo_lstr) - 1:
+            self.grating_density = float(self.grating_combo_lstr[idx])
+            self.current_grating_idx = idx
+        else:
+            self.showGratingWindow()
+        if idx == len(self.grating_combo_lstr) - 1:
+            self.grating_combo.setCurrentIndex(self.current_grating_idx)
+        else:
+            self.current_grating_idx = self.grating_combo.currentIndex()
+
     def showConfigWindow(self):
         if self.machine_conf_win is None:
             ui_file_name = exeDir + '/grating_input.ui'
@@ -411,9 +475,13 @@ class Ui(QMainWindow):
             uic.loadUi(ui_file, self.machine_conf_win)
 
             self.machine_conf_win.setWindowTitle('Monochromator Configuration')
+            # self.machine_conf_win.setWindowFlags(self.machine_conf_win.windowFlags().setFlag(WindowContextHelpButtonHint, False))
 
-            self.grating_density_in = self.machine_conf_win.findChild(QDoubleSpinBox, 'grating_density_in')
-            self.grating_density_in.setValue(self.grating_density)
+            self.grating_combo: QComboBox = self.machine_conf_win.findChild(QComboBox, 'grating_combo_2')
+            self.grating_combo.addItems(self.grating_combo_lstr)
+            self.grating_combo.activated.connect(self.newGratingItem)
+            # self.grating_density_in = self.machine_conf_win.findChild(QDoubleSpinBox, 'grating_density_in')
+            # self.grating_density_in.setValue(self.grating_density)
             
             self.zero_ofst_in = self.machine_conf_win.findChild(QDoubleSpinBox, 'zero_offset_in')
             self.zero_ofst_in.setValue(self.zero_ofst)
@@ -437,7 +505,8 @@ class Ui(QMainWindow):
 
     def applyMachineConf(self):
         print('Apply config called')
-        self.grating_density = self.grating_density_in.value()
+        self.grating_density = float(self.grating_combo_lstr[self.current_grating_idx])
+        print(self.grating_density)
         self.diff_order = self.diff_order_in.value()
         self.zero_ofst = self.zero_ofst_in.value()
         self.incidence_ang = self.incidence_ang_in.value()
@@ -595,3 +664,4 @@ if __name__ == '__main__':
     print('pa: %d'%(sys.getrefcount(mainWindow.pa) - 1))
     del mainWindow
     sys.exit(ret)
+# %%
