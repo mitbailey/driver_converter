@@ -315,7 +315,7 @@ class Ui(QMainWindow):
         self.current_position = self.motor_ctrl.get_position()
         self.moving = self.motor_ctrl.is_moving()
         # print(self.current_position)
-        self.currpos_mm_disp.setText('<b>%3.4f</b>'%(((self.current_position / MM_TO_IDX) / self.conversion_slope) - self.zero_ofst))
+        self.currpos_mm_disp.setText('<b><i>%3.4f</i></b>'%(((self.current_position / MM_TO_IDX) / self.conversion_slope) - self.zero_ofst))
         # self.currpos_lcd_disp.display(((self.current_position / MM_TO_IDX) / self.conversion_slope) - self.zero_ofst)
         # self.currpos_steps_disp.setText('%d steps'%(self.current_position))
 
