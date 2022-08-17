@@ -207,12 +207,12 @@ class Ui(QMainWindow):
 
         # set the palette
         self.currpos_mm_disp.setPalette(palette)
-        if digital_7_italic_22 is not None:
-            self.currpos_mm_disp.setFont(digital_7_italic_22)
+        # if digital_7_italic_22 is not None:
+        #     self.currpos_mm_disp.setFont(digital_7_italic_22)
         # self.currpos_steps_disp = self.findChild(QLabel, "currpos_steps")
         self.scan_status = self.findChild(QLabel, "status_label")
-        if digital_7_16 is not None:
-            self.scan_status.setFont(digital_7_16)
+        # if digital_7_16 is not None:
+        #     self.scan_status.setFont(digital_7_16)
         self.scan_progress = self.findChild(QProgressBar, "progressbar")
         
 
@@ -548,15 +548,15 @@ if __name__ == '__main__':
     application = QApplication(sys.argv)
     try:
         fid = QFontDatabase.addApplicationFont(exeDir + '/digital-7 (mono italic).ttf')
-        fstr = QFontDatabase.applicationFontFamilies(fid)[0]
-        digital_7_italic_22 = QFont(fstr, 22)
+        # fstr = QFontDatabase.applicationFontFamilies(fid)[0]
+        # digital_7_italic_22 = QFont(fstr, 22)
     except Exception as e:
         print(e.what())
 
     try:
         fid = QFontDatabase.addApplicationFont(exeDir + '/digital-7 (mono).ttf')
-        fstr = QFontDatabase.applicationFontFamilies(fid)[0]
-        digital_7_16 = QFont(fstr, 16)
+        # fstr = QFontDatabase.applicationFontFamilies(fid)[0]
+        # digital_7_16 = QFont(fstr, 16)
     except Exception as e:
         print(e.what())
 
