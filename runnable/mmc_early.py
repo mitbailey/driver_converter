@@ -34,7 +34,7 @@ from PyQt5.Qt import QTextOption
 from PyQt5.QtCore import (pyqtSignal, pyqtSlot, Q_ARG, QAbstractItemModel,
                           QFileInfo, qFuzzyCompare, QMetaObject, QModelIndex, QObject, Qt,
                           QThread, QTime, QUrl, QSize, QEvent, QCoreApplication, QFile, QIODevice)
-from PyQt5.QtGui import QColor, qGray, QImage, QPainter, QPalette, QIcon, QKeyEvent, QMouseEvent
+from PyQt5.QtGui import QColor, qGray, QImage, QPainter, QPalette, QIcon, QKeyEvent, QMouseEvent, QFontDatabase, QFont
 from PyQt5.QtMultimedia import (QAbstractVideoBuffer, QMediaContent,
                                 QMediaMetaData, QMediaPlayer, QMediaPlaylist, QVideoFrame, QVideoProbe)
 from PyQt5.QtMultimediaWidgets import QVideoWidget
@@ -60,6 +60,11 @@ from PyQt5 import QtCore, QtWidgets
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
+
+# %% Fonts
+digital_7_italic_22 = None
+digital_7_16 = None
+# %% Classes
 
 class MplCanvas(FigureCanvasQTAgg):
     def __init__(self, parent=None, width=5, height=4, dpi=100):
@@ -202,8 +207,12 @@ class Ui(QMainWindow):
 
         # set the palette
         self.currpos_mm_disp.setPalette(palette)
+        if digital_7_italic_22 is not None:
+            self.currpos_mm_disp.setFont(digital_7_italic_22)
         # self.currpos_steps_disp = self.findChild(QLabel, "currpos_steps")
         self.scan_status = self.findChild(QLabel, "status_label")
+        if digital_7_16 is not None:
+            self.scan_status.setFont(digital_7_16)
         self.scan_progress = self.findChild(QProgressBar, "progressbar")
         
 
@@ -537,6 +546,19 @@ if __name__ == '__main__':
     # 3. The control GUI (mainwindow.ui), where the user has control over what the device(s) do.
     
     application = QApplication(sys.argv)
+    try:
+        fid = QFontDatabase.addApplicationFont(exeDir + '/digital-7 (mono italic).ttf')
+        fstr = QFontDatabase.applicationFontFamilies(fid)[0]
+        digital_7_italic_22 = QFont(fstr, 22)
+    except Exception as e:
+        print(e.what())
+
+    try:
+        fid = QFontDatabase.addApplicationFont(exeDir + '/digital-7 (mono).ttf')
+        fstr = QFontDatabase.applicationFontFamilies(fid)[0]
+        digital_7_16 = QFont(fstr, 16)
+    except Exception as e:
+        print(e.what())
 
     # First, the loading screen.
 
