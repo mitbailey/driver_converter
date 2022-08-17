@@ -41,7 +41,8 @@ from PyQt5.QtMultimediaWidgets import QVideoWidget
 from PyQt5.QtWidgets import (QMainWindow, QDoubleSpinBox, QApplication, QComboBox, QDialog, QFileDialog,
                              QFormLayout, QHBoxLayout, QLabel, QListView, QMessageBox, QPushButton,
                              QSizePolicy, QSlider, QStyle, QToolButton, QVBoxLayout, QWidget, QLineEdit, QPlainTextEdit,
-                             QTableWidget, QTableWidgetItem, QSplitter, QAbstractItemView, QStyledItemDelegate, QHeaderView, QFrame, QProgressBar, QCheckBox, QToolTip, QGridLayout)
+                             QTableWidget, QTableWidgetItem, QSplitter, QAbstractItemView, QStyledItemDelegate, QHeaderView, QFrame, QProgressBar, QCheckBox, QToolTip, QGridLayout,
+                             QLCDNumber)
 from PyQt5.QtCore import QTimer
 from io import TextIOWrapper
 
@@ -136,7 +137,8 @@ class Ui(QMainWindow):
         self.stoppos = 0
         self.steppos = 0
 
-        self.application = application
+        self.application: QApplication = application
+        args = self.application.arguments()
 
         super(Ui, self).__init__()
         uic.loadUi(uiresource, self)
@@ -145,29 +147,28 @@ class Ui(QMainWindow):
         self.is_conv_set = False # Use this flag to set conversion
 
         #  Picoammeter init.
-        # try:
-        self.pa = pico.Picoammeter(3)
-        # except:
-        #     self.pa = pico.Picodummy(3)
+        if len(args) != 1:
+            self.pa = pico.Picodummy(3)
+        else:
+            self.pa = pico.Picoammeter(3)
 
         #  KST101 init.
         print("KST101 init begin.")
-        # try:
-        print("Trying...")
-        serials = tlkt.Thorlabs.ListDevicesAny()
-        print(serials)
-        if len(serials) == 0:
-            print("No KST101 controller found.")
-            raise RuntimeError('No KST101 controller found')
-        self.motor_ctrl = tlkt.Thorlabs.KST101(serials[0])
-        if (self.motor_ctrl._CheckConnection() == False):
-            print("Connection with motor controller failed.")
-            raise RuntimeError('Connection with motor controller failed.')
-        self.motor_ctrl.set_stage('ZST25')
-        # except:
-        #     print("Exception")
-        #     serials = tlkt.Thorlabs.KSTDummy._ListDevices()
-        #     self.motor_ctrl = tlkt.Thorlabs.KSTDummy(serials[0])
+        if len(args) == 1:
+            print("Trying...")
+            serials = tlkt.Thorlabs.ListDevicesAny()
+            print(serials)
+            if len(serials) == 0:
+                print("No KST101 controller found.")
+                raise RuntimeError('No KST101 controller found')
+            self.motor_ctrl = tlkt.Thorlabs.KST101(serials[0])
+            if (self.motor_ctrl._CheckConnection() == False):
+                print("Connection with motor controller failed.")
+                raise RuntimeError('Connection with motor controller failed.')
+            self.motor_ctrl.set_stage('ZST25')
+        else:
+            serials = tlkt.Thorlabs.KSTDummy._ListDevices()
+            self.motor_ctrl = tlkt.Thorlabs.KSTDummy(serials[0])
 
         # Move to 1mm (0nm)
         # self.motor_ctrl.move_to(1 * MM_TO_IDX, True)
@@ -186,7 +187,22 @@ class Ui(QMainWindow):
 
         # These UI elements moved to begin programmatically created within the status bar.
         self.currpos_mm_disp = self.findChild(QLabel, "currpos_nm")
-        self.currpos_steps_disp = self.findChild(QLabel, "currpos_steps")
+        # self.currpos_lcd_disp: QLCDNumber = self.findChild(QLCDNumber, 'currpos_lcd')
+        # get the palette
+        palette = self.currpos_mm_disp.palette()
+
+        # foreground color
+        palette.setColor(palette.WindowText, QColor(255, 0, 0))
+        # background color
+        palette.setColor(palette.Background, QColor(0, 170, 255))
+        # "light" border
+        palette.setColor(palette.Light, QColor(80, 80, 255))
+        # "dark" border
+        palette.setColor(palette.Dark, QColor(0, 255, 0))
+
+        # set the palette
+        self.currpos_mm_disp.setPalette(palette)
+        # self.currpos_steps_disp = self.findChild(QLabel, "currpos_steps")
         self.scan_status = self.findChild(QLabel, "status_label")
         self.scan_progress = self.findChild(QProgressBar, "progressbar")
         
@@ -276,22 +292,23 @@ class Ui(QMainWindow):
         return
 
     def scan_statusUpdate_slot(self, status):
-        self.scan_status.setText('System status: <b>%s</b>'%(status))
+        self.scan_status.setText('"<html><head/><body><p><span style=" font-weight:600;">%s</span></p></body></html>"'%(status))
 
     def scan_progress_slot(self, curr_percent):
         self.scan_progress.setValue(curr_percent)
 
     def scan_complete_slot(self):
         self.scan_button.setText('Begin Scan')
-        self.scan_status.setText("System status: <b>IDLE</b>")
+        self.scan_status.setText('"<html><head/><body><p><span style=" font-weight:600;">IDLE</span></p></body></html>"')
         self.scan_progress.reset()
 
     def update_position_displays(self):
         self.current_position = self.motor_ctrl.get_position()
         self.moving = self.motor_ctrl.is_moving()
         # print(self.current_position)
-        self.currpos_mm_disp.setText('Current: %.4f nm'%(((self.current_position / MM_TO_IDX) / self.conversion_slope) - self.zero_ofst))
-        self.currpos_steps_disp.setText('%d steps'%(self.current_position))
+        self.currpos_mm_disp.setText('<b>%3.4f</b>'%(((self.current_position / MM_TO_IDX) / self.conversion_slope) - self.zero_ofst))
+        # self.currpos_lcd_disp.display(((self.current_position / MM_TO_IDX) / self.conversion_slope) - self.zero_ofst)
+        # self.currpos_steps_disp.setText('%d steps'%(self.current_position))
 
     def scan_button_pressed(self):
         print("Scan button pressed!")
@@ -381,7 +398,7 @@ class Ui(QMainWindow):
                 print(f"Cannot open {ui_file_name}: {ui_file.errorString()}")
                 raise RuntimeError('Could not load grating input UI file')
             
-            self.machine_conf_win = QDialog()
+            self.machine_conf_win = QDialog(self) # pass parent window
             uic.loadUi(ui_file, self.machine_conf_win)
 
             self.machine_conf_win.setWindowTitle('Monochromator Configuration')
@@ -407,7 +424,7 @@ class Ui(QMainWindow):
             self.machine_conf_btn = self.machine_conf_win.findChild(QPushButton, 'update_conf_btn')
             self.machine_conf_btn.clicked.connect(self.applyMachineConf)
         
-        self.machine_conf_win.show()
+        self.machine_conf_win.exec() # synchronously run this window so parent window is disabled
 
     def applyMachineConf(self):
         print('Apply config called')
@@ -422,84 +439,6 @@ class Ui(QMainWindow):
         self.conversion_slope = ((self.arm_length * self.diff_order * self.grating_density)/(2 * (m.cos(m.radians(self.tangent_ang))) * (m.cos(m.radians(self.incidence_ang))) * 1e6))
 
         self.machine_conf_win.close()
-
-
-    # TODO: Use QThreads to prevent freezing GUI. For now, `self.application.processEvents()`.
-    # TODO: (cont.): https://www.xingyulei.com/post/qt-threading/
-    # def initiate_scan(self):
-    #     print("Save to file? " + str(self.save_data))
-
-    #     self.scan_status.setText("PREPARING")
-    #     self.scan_progress.setMinimum(self.start)
-    #     self.scan_progress.setMaximum(self.stop)
-    #     self.application.processEvents()
-
-    #     if (self.save_data):
-    #         tnow = dt.datetime.now()
-            
-    #         filename = self.auto_dir + '/' + self.auto_prefix + '_' + tnow.strftime('%Y%m%d%H%M%S') + "_data.csv"
-    #         os.makedirs(os.path.dirname(filename), exist_ok=True)
-    #         self.sav_file = open(filename, 'w')
-
-    #         # print(type(self.sav_file))
-    #     # Move to start and collect data.
-    #     self.scan_status.setText("MOVING")
-    #     self.application.processEvents()
-    #     self.motor_ctrl.move_to(self.start, True)
-        
-    #     self.scan_status.setText("SAMPLING")
-    #     self.application.processEvents()
-    #     if (self.save_data):
-    #         self.sav_file.write('# %s\n'%(tnow.strftime('%Y-%m-%d %H:%M:%S')))
-    #         self.sav_file.write('# Steps/mm: %f\n'%(MM_TO_IDX))
-    #         self.sav_file.write('# Position (step),Current(A),Timestamp,Error Code\n')
-    #         # pos = self.motor_ctrl.get_position()
-    #         self.sav_file.write(self.pa.sample_data(10, self.motor_ctrl.get_position()))
-
-    #         # self.scan_progress.setValue(pos)
-    #         # self.application.processEvents()
-
-    #     else:
-    #         print(self.pa.sample_data(10, self.motor_ctrl.get_position()))
-    #     print(self.start, self.stop, self.step)
-    #     if self.step > 0:
-    #         while self.motor_ctrl.get_position() < self.stop:
-    #             self.scan_status.setText("MOVING")
-    #             self.application.processEvents()
-    #             self.motor_ctrl.move_by(self.step, True)
-    #             pos = self.motor_ctrl.get_position()
-    #             self.scan_status.setText("SAMPLING")
-    #             self.application.processEvents()
-    #             if (self.save_data):
-    #                 self.sav_file.write(self.pa.sample_data(10, pos))
-    #             else:
-    #                 print(self.pa.sample_data(10, pos))
-
-    #             self.scan_progress.setValue(pos)
-    #             self.application.processEvents()
-
-    #     else:
-    #         while self.motor_ctrl.get_position() > self.stop:
-    #             self.scan_status.setText("MOVING")
-    #             self.application.processEvents()
-    #             self.motor_ctrl.move_by(self.step, True)
-    #             self.scan_status.setText("SAMPLING")
-    #             self.application.processEvents()
-    #             if (self.save_data):
-    #                 self.sav_file.write(self.pa.sample_data(10, pos))
-    #             else:
-    #                 print(self.pa.sample_data(10, pos))
-
-    #             self.scan_progress.setValue(pos)
-    #             self.application.processEvents()
-
-    #     if (self.save_data):
-    #         self.sav_file.close()
-    #     self.scan_status.setText("IDLE")
-    #     self.scan_progress.reset()
-    #     self.scan_progress.setMinimum(0)
-    #     self.scan_progress.setMaximum(100)
-    #     self.application.processEvents()
 
 class Scan(QThread):
     statusUpdate = pyqtSignal(str)
