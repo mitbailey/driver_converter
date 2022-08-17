@@ -8,7 +8,7 @@ a = Analysis(
     ['mmc_early.py'],
     pathex=['./'],
     binaries=[],
-    datas=[('mainwindow.ui', '.')], # this line has been edited, and mainwindow ui resource has been added
+    datas=[('mainwindow_mk2.ui', '.'), ('grating_input.ui', '.')], # this line has been edited, and mainwindow ui resource has been added
     # execute pyinstaller mmc_early.spec to compile exe directly 
     # if pyinstaller --onefile --windowed mmc_early.py is used, it is going to overwrite the spec file
     # and create a malfunctioning exe that does not include the ui file
@@ -38,7 +38,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
