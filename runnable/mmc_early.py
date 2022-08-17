@@ -26,6 +26,7 @@ elif __file__:
 
 # %% More Imports
 
+import configparser as confp
 from email.charset import QP
 from time import sleep
 import weakref
@@ -135,7 +136,72 @@ class Ui(QMainWindow):
         self.incidence_ang = 32 # deg
         self.zero_ofst = 37.8461 # nm
 
-        self.conversion_slope = ((self.arm_length * self.diff_order * self.grating_density)/(2 * (m.cos(m.radians(self.tangent_ang))) * (m.cos(m.radians(self.incidence_ang))) * 1e6))
+        while os.path.exists(exeDir + '/config.ini'):
+            config = confp.ConfigParser()
+            config.read(exeDir + '/config.ini')
+            print(config)
+            error = False
+
+            if len(config.sections()) and 'INSTRUMENT' in config.sections():
+                gratingDensityStr = config['INSTRUMENT']['gratingDensities']
+                gratingDensityList = gratingDensityStr.split(',')
+                for d in gratingDensityList:
+                    try:
+                        _ = float(d)
+                    except Exception:
+                        print('Error getting grating densities')
+                        # show a window here or something
+                        error = True
+                        break
+                if error:
+                    break
+                self.grating_combo_lstr = gratingDensityList + ['* New Entry']
+                try:
+                    idx = int(config['INSTRUMENT']['gratingDensityIndex'])
+                except Exception as e:
+                    print('Error getting grating index, %s'%(e.what()))
+                    idx = 0
+                if idx >= len(self.grating_combo_lstr) - 1:
+                    print('Invalid initial grating index')
+                    idx = 0
+                self.current_grating_idx = idx
+                self.grating_density = float(self.grating_combo_lstr[self.current_grating_idx])
+                try:
+                    self.diff_order = int(config['INSTRUMENT']['diffractionOrder'])
+                except Exception as e:
+                    print('Invalid diffraction order, %s'%(e.what()))
+                if self.diff_order < 1:
+                    print('Diffraction order can not be zero or negative')
+                    self.diff_order = 1
+                try:
+                    self.incidence_ang = float(config['INSTRUMENT']['incidenceAngle'])
+                except Exception as e:
+                    print('Invalid incidence angle, %s'%(e.what()))
+                if not -90 < self.incidence_ang < 90:
+                    print('Invalid incidence angle %f'%(self.incidence_ang))
+                    self.incidence_ang = 0
+                
+                try:
+                    self.tangent_ang = float(config['INSTRUMENT']['tangentAngle'])
+                except Exception as e:
+                    print('Invalid tangent angle, %s'%(e.what()))
+                if not -90 < self.tangent_ang < 90:
+                    print('Invalid tangent angle %f'%(self.tangent_ang))
+                    self.tangent_ang = 0
+
+                try:
+                    self.arm_length = float(config['INSTRUMENT']['armLength'])
+                except Exception as e:
+                    print('Invalid arm length, %s'%(e.what()))
+                if not 0 < self.arm_length < 1e6: # 1 km
+                    print('Invalid arm length %f'%(self.arm_length))
+                    self.arm_length = 100
+
+                break
+                    
+        
+
+        self.calculateConversionSlope()
 
         # pos_mm = ((arm_length_mm * order * grating_density_grv_mm)/(2 * (m.cos(m.radians(tan_ang_deg))) * (m.cos(m.radians(inc_ang_deg))) * 1e6)) * (INPUT_POSITION_NM - zero_offset_nm)
 
@@ -453,15 +519,23 @@ class Ui(QMainWindow):
         self.grating_conf_win.close()    
 
     def newGratingItem(self, idx: int):
-        if idx != len(self.grating_combo_lstr) - 1:
-            self.grating_density = float(self.grating_combo_lstr[idx])
-            self.current_grating_idx = idx
-        else:
+        # if idx != len(self.grating_combo_lstr) - 1:
+        #     self.grating_density = float(self.grating_combo_lstr[idx])
+        #     self.current_grating_idx = idx
+        # else:
+        #     self.showGratingWindow()
+        # if idx == len(self.grating_combo_lstr) - 1:
+        #     self.grating_combo.setCurrentIndex(self.current_grating_idx)
+        # else:
+        #     self.current_grating_idx = self.grating_combo.currentIndex()
+        slen = len(self.grating_combo_lstr) # old length
+        if idx == slen - 1:
             self.showGratingWindow()
-        if idx == len(self.grating_combo_lstr) - 1:
-            self.grating_combo.setCurrentIndex(self.current_grating_idx)
-        else:
-            self.current_grating_idx = self.grating_combo.currentIndex()
+            if len(self.grating_combo_lstr) != slen: # new length is different, new entry has been added
+                self.current_grating_idx = self.grating_combo.setCurrentIndex(idx)
+            else: # new entry has not been added
+                self.grating_combo.setCurrentIndex(self.current_grating_idx)
+
 
     def showConfigWindow(self):
         if self.machine_conf_win is None:
@@ -479,6 +553,8 @@ class Ui(QMainWindow):
 
             self.grating_combo: QComboBox = self.machine_conf_win.findChild(QComboBox, 'grating_combo_2')
             self.grating_combo.addItems(self.grating_combo_lstr)
+            print(self.current_grating_idx)
+            self.grating_combo.setCurrentIndex(self.current_grating_idx)
             self.grating_combo.activated.connect(self.newGratingItem)
             # self.grating_density_in = self.machine_conf_win.findChild(QDoubleSpinBox, 'grating_density_in')
             # self.grating_density_in.setValue(self.grating_density)
@@ -502,21 +578,31 @@ class Ui(QMainWindow):
             self.machine_conf_btn.clicked.connect(self.applyMachineConf)
         
         self.machine_conf_win.exec() # synchronously run this window so parent window is disabled
+        print('Exec done', self.current_grating_idx, self.grating_combo.currentIndex())
+        if self.current_grating_idx != self.grating_combo.currentIndex():
+            self.grating_combo.setCurrentIndex(self.current_grating_idx)
 
     def applyMachineConf(self):
         print('Apply config called')
+        idx = self.grating_combo.currentIndex()
+        if idx < len(self.grating_combo_lstr) - 1:
+            self.current_grating_idx = idx
         self.grating_density = float(self.grating_combo_lstr[self.current_grating_idx])
         print(self.grating_density)
-        self.diff_order = self.diff_order_in.value()
+        self.diff_order = int(self.diff_order_in.value())
         self.zero_ofst = self.zero_ofst_in.value()
         self.incidence_ang = self.incidence_ang_in.value()
+        self.tangent_ang = self.tangent_ang_in.value()
         self.arm_length = self.arm_length_in.value()
 
         # self.conversion_slope = 2 / self.grating_density * 1e3 * np.cos(np.pi * self.incidence_ang / 180) * np.cos(np.pi * self.tangent_ang / 180) / self.arm_length * MM_TO_IDX / self.diff_order
 
-        self.conversion_slope = ((self.arm_length * self.diff_order * self.grating_density)/(2 * (m.cos(m.radians(self.tangent_ang))) * (m.cos(m.radians(self.incidence_ang))) * 1e6))
+        self.calculateConversionSlope()
 
         self.machine_conf_win.close()
+    
+    def calculateConversionSlope(self):
+        self.conversion_slope = ((self.arm_length * self.diff_order * self.grating_density)/(2 * (m.cos(m.radians(self.tangent_ang))) * (m.cos(m.radians(self.incidence_ang))) * 1e6))
 
 class Scan(QThread):
     statusUpdate = pyqtSignal(str)
@@ -555,7 +641,9 @@ class Scan(QThread):
         print("SCAN QTHREAD")
         print("Start | Stop | Step")
         print(self.other.startpos, self.other.stoppos, self.other.steppos)
-
+        if self.other.steppos == 0 or self.other.startpos == self.other.stoppos:
+            self.complete.emit()
+            return
         scanrange = np.arange(self.other.startpos, self.other.stoppos + self.other.steppos, self.other.steppos)
         # self.other.pa.set_samples(3)
         nidx = len(scanrange)
@@ -662,6 +750,25 @@ if __name__ == '__main__':
     print('mainwindow: %d'%(sys.getrefcount(mainWindow) - 1))
     print('motor: %d'%(sys.getrefcount(mainWindow.motor_ctrl) - 1))
     print('pa: %d'%(sys.getrefcount(mainWindow.pa) - 1))
+
+    save_config = confp.ConfigParser()
+    grating_lstr = mainWindow.grating_combo_lstr[:-1]
+    gratingDensityStr = ''
+    for obj in grating_lstr:
+        gratingDensityStr += obj + ','
+    gratingDensityStr = gratingDensityStr.rstrip(',')
+    save_config['INSTRUMENT'] = {'gratingDensities': gratingDensityStr,
+                                 'gratingDensityIndex': str(mainWindow.current_grating_idx),
+                                 'diffractionOrder': str(mainWindow.diff_order),
+                                 'zeroOffset': str(mainWindow.zero_ofst),
+                                 'incidenceAngle': str(mainWindow.incidence_ang),
+                                 'tangentAngle': str(mainWindow.tangent_ang),
+                                 'armLength': str(mainWindow.arm_length)}
+    
+    with open(exeDir+'/config.ini', 'w') as confFile:
+        save_config.write(confFile)
+
     del mainWindow
     sys.exit(ret)
+
 # %%
